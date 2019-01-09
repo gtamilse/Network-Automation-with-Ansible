@@ -37,11 +37,12 @@
 	- [3.5 Bulk Config Generation](#35-bulk-config-generation)
 - [4. Appendix](#4-appendix)
 	- [4.1 Ansible Vault](#41-ansible-vault)
-	- [4.2 Optional exercise op3-cmd.yml](#42-optional-exercise-op3-cmdyml)
-	- [4.3 Optional exercise op8-conditionals.yml](#43-optional-exercise-op8-conditionalsyml)
-	- [4.4 Optional exercise op33-mop.yml (MOP)](#44-optional-exercise-op33-mopyml-mop)
-	- [4.5 Ansible installation](#45-ansible-installation)
-	- [4.6 Reference](#46-reference)
+	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op3-cmdyml)
+	- [4.3 Optional exercise op28-conditionals.yml](#43-optional-exercise-op8-conditionalsyml)
+	- [4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)](#44-optional-exercise-op31-runcfg-bkupyml-router-config-backup)
+	- [4.5 Optional exercise op33-mop.yml (MOP)](#45-optional-exercise-op33-mopyml-mop)
+	- [4.6 Ansible installation](#46-ansible-installation)
+	- [4.7 Reference](#47-reference)
 
 ---
 
@@ -1509,6 +1510,14 @@ $ ls -l R*.txt
 - You setup a cron job to automatically execute a playbook once a day.
 - Review the section and discuss if you have any questions.
 
+### Optional exercise
+
+> - Add the below requirements to the above config backup playbook:
+  - Write the running config to startup config on IOS devices
+  - Gather the Admin mode running config from XR devices and save it to a file
+> - Execute your playbook and verify if the results meet the requirements.
+> - Solution playbook files (op31-runcfg-bkup.yml) are given in the appendix section 4.4 for your reference.
+
 ### Reference
 
 > - Copy module: http://docs.ansible.com/ansible/latest/modules/copy_module.html
@@ -2046,7 +2055,7 @@ $ ls -l R[1-2]-OSPF*.txt
   - Create a new playbook that compares the differences between the pre-capture and post-capture files.
   - Hint: use the diff feature of the command module.
 > - Execute your playbook and verify if the results meet the requirements.
-> - Solution playbook files (op33-diff.yml) are given in the appendix section 4.4 for your reference.
+> - Solution playbook files (op33-diff.yml) are given in the appendix section 4.5 for your reference.
 
 
 ### Reference
@@ -3527,7 +3536,6 @@ R1                         : ok=2    changed=0    unreachable=0    failed=0
 R2                         : ok=2    changed=0    unreachable=0    failed=0   
 
 ```
-
 ---
 ## 4.3 Optional exercise op28-conditionals.yml
 ### Objective
@@ -3594,9 +3602,120 @@ R1                         : ok=2    changed=1    unreachable=0    failed=0
 R2                         : ok=2    changed=1    unreachable=0    failed=0   
 
 ```
+---
+## 4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)
+### Objective
+- We have two additional requirements on top of the Config Backup playbook that we already did.
+  - Write the Running Config to Startup Config on IOS devices
+  - Gather the Admin mode Running config from XR devices and save it to a file.
+
+### Lab exercise
+- Since these will be run on different subsets of nodes, new plays in the same playbook will be created
+  - For writing IOS configs, the "ios_command" module can be used.
+  - For gathering XR admin mode config, the “raw” and “copy” modules can be used.
+- Create playbook, op31-runcfg-bkup.yml, with the contents below:
+
+```
+cisco@ansible-controller:~$ vi op31-runcfg-bkup.yml
+---
+- name: Get Router Config from All Routers
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Collect Show run from all routers
+      raw: "show run"
+
+      register: RUNCFG
+
+    - set_fact: time="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===show run=== \n {{ RUNCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_run_cfg_{{ time }}.txt"
+
+- name: Write IOS Running Config to Startup Config
+  hosts: IOS
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: Write IOS Config
+      ios_command:
+        authorize: yes
+        commands: write memory
+
+- name: Get Admin Config from XR Routers
+  hosts: XR
+  gather_facts: no
+
+  tasks:
+    - name: Collect Admin show run from XR routers
+      raw: "admin show run"
+
+      register: ADMINCFG
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===admin show run=== \n {{ ADMINCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_admin_run_cfg_{{ time }}.txt"
+```
+
+### Example output
+
+```
+cisco@ansible-controller:~$ ansible-playbook op31-runcfg-bkup.yml --syntax-check
+
+playbook: op31-runcfg-bkup.yml
+
+cisco@ansible-controller:~$ ansible-playbook op31-runcfg-bkup.yml
+
+PLAY [Get Router Config from All Routers] ************************************************************************************************************************************************************
+
+TASK [Collect Show run from all routers] *************************************************************************************************************************************************************
+changed: [R1]
+changed: [R2]
+
+TASK [set_fact] **************************************************************************************************************************************************************************************
+ok: [R1]
+ok: [R2]
+
+TASK [save output to a file] *************************************************************************************************************************************************************************
+changed: [R2]
+changed: [R1]
+
+PLAY [Write IOS Running Config to Startup Config] ****************************************************************************************************************************************************
+
+TASK [Write IOS Config] ******************************************************************************************************************************************************************************
+ok: [R1]
+
+PLAY [Get Admin Config from XR Routers] **************************************************************************************************************************************************************
+
+TASK [Collect Admin show run from XR routers] ********************************************************************************************************************************************************
+changed: [R2]
+
+TASK [save output to a file] *************************************************************************************************************************************************************************
+changed: [R2]
+
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=4    changed=2    unreachable=0    failed=0   
+R2                         : ok=5    changed=4    unreachable=0    failed=0   
+
+cisco@ansible-controller:~$ ls -ltr *run_cfg*
+-rw-rw-r-- 1 cisco cisco 1359 Jan  8 23:26 R2_run_cfg_2019-01-08-23-26.txt
+-rw-rw-r-- 1 cisco cisco 4622 Jan  8 23:26 R1_run_cfg_2019-01-08-23-26.txt
+-rw-rw-r-- 1 cisco cisco 1359 Jan  8 23:34 R2_run_cfg_2019-01-08-23-34.txt
+-rw-rw-r-- 1 cisco cisco 4622 Jan  8 23:34 R1_run_cfg_2019-01-08-23-34.txt
+-rw-rw-r-- 1 cisco cisco 1686 Jan  9 16:59 R2_run_cfg_2019-01-09-16-59.txt
+-rw-rw-r-- 1 cisco cisco 4919 Jan  9 16:59 R1_run_cfg_2019-01-09-16-59.txt
+-rw-rw-r-- 1 cisco cisco  214 Jan  9 16:59 R2_admin_run_cfg_2019-01-09-16-59.txt
+```
 
 ---
-## 4.4 Optional exercise op33-mop.yml (MOP)
+## 4.5 Optional exercise op33-mop.yml (MOP)
 
 ### Objective
 - We have  additional requirement on top of the MOP playbook that we already did.
@@ -3680,8 +3799,7 @@ cisco@ansible-controller:~$ ls -l op33*.txt
 ```
 
 ---
-
-## 4.5 Ansible installation
+## 4.6 Ansible installation
 - Ansible control machine is on Linux based systems with Python 2 (versions 2.6 or higher) or Python 3 (versions 3.5 or higher).
 - Red Hat, Debian, CentOS, OS X (MAC OS), Ubuntu, BSDs etc. are supported. MS Windows OS is not supported.
 - Installation steps are straight forward. Depending on your OS flavor, pick the steps from the installation guide.
@@ -3710,7 +3828,7 @@ $ sudo apt-get install ansible
 
 ---
 
-## 4.6 Reference
+## 4.7 Reference
 - Ansible Documentation: http://docs.ansible.com/ansible/latest/index.html
 - YAML Version 1.2 Specs: http://www.yaml.org/spec/1.2/spec.html
 - Jinjia2 Templating: http://jinja.pocoo.org/docs/dev/templates/
