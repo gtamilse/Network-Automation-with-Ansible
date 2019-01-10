@@ -907,7 +907,7 @@ $ ansible-playbook p6-vars.yml
 
 ### Conclusion
 - In this section you created variables inside a playbook and recalled the variables to complete a task execution.
-- When multiple commands are given to the ios_command module, the results of each command output are stored in individual <variable>.stdout_lines array items.  They can be recalled individually by referencing their order in the array.  Ex:  <variable>.stdout_lines[n]
+- When multiple commands are given to the ios_command module, the results of each command output are stored in individual \<variable\>.stdout_lines array items.  They can be recalled individually by referencing their order in the array.  Ex:  \<variable\>.stdout_lines[n]
 - Review the section and discuss if you have any questions.
 
 ### Reference
