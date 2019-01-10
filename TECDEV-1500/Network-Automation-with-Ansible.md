@@ -32,13 +32,13 @@
 - [3. Automating Common Tasks](#3-automating-common-tasks)
 	- [3.1 Router config backup](#31-router-config-backup)
 	- [3.2 Device health monitoring](#32-device-health-monitoring)
-	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop)
-	- [3.4 Generate iBGP Config](#34-generate-ibgp-config)
+	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop-automation)
+	- [3.4 Generate Device Config](#34-generate-device-configuration)
 	- [3.5 Bulk Config Generation](#35-bulk-config-generation)
 - [4. Appendix](#4-appendix)
 	- [4.1 Ansible Vault](#41-ansible-vault)
-	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op3-cmdyml)
-	- [4.3 Optional exercise op28-conditionals.yml](#43-optional-exercise-op8-conditionalsyml)
+	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op23-cmdyml)
+	- [4.3 Optional exercise op28-conditionals.yml](#43-optional-exercise-op28-conditionalsyml)
 	- [4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)](#44-optional-exercise-op31-runcfg-bkupyml-router-config-backup)
 	- [4.5 Optional exercise op33-mop.yml (MOP)](#45-optional-exercise-op33-mopyml-mop)
 	- [4.6 Ansible installation](#46-ansible-installation)
@@ -1218,7 +1218,7 @@ $ ansible-playbook p8-conditionals.yml -v
 ### Optional exercise
 > - Create a playbook, which will:
 >   - Detect router OS
->   - If a router has IOS, print message, "'hostname' is a IOS router" and if a router has XR, print, "'hostname' is a XR router"
+>   - If a router has IOS, print message, "\<hostname\> is a IOS router" and if a router has XR, print, "\<hostname\> is a XR router"
 >   - Playbook needs to find the router names dynamically from the inventory file.
 > - Solution playbook is included in the appendix section 4.3 (op28-conditionals.yml).
 
@@ -1444,7 +1444,7 @@ cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
 
 Note when using the raw module do not set the connection to local. The raw module simply takes the input argument and executes the command on the remote host.
 
-#### Step-2: Edit the previous play to add a new task which will perform a time lookup. Then add another task to save the output to a file.
+#### Step-2: Edit the previous play to add a new task which will perform a time lookup. Then add another task to save the output to a file using the copy module.
 
 Use the set_fact option to set a variable "time" equal to the current time value on the server.
 
@@ -1498,6 +1498,7 @@ Select an editor.  To change later, run 'select-editor'.
 Choose 1-4 [1]: 2
 ```
 - Inside the VIM editor of the crontab schedule the playbook to be run 1 or 2 mins after the current server time.
+- Note: You must exit from "crontab -e" in order for the cron file to be installed.
 
 ```
 #Run Ansible Playbook rtr-cfg-bkup everyday at 5:15 am UTC to backup router configs
@@ -1518,8 +1519,8 @@ $ ls -l R*.txt
 ### Optional exercise
 
 > - Add the below requirements to the above config backup playbook:
-  - Write the running config to startup config on IOS devices
-  - Gather the Admin mode running config from XR devices and save it to a file
+>    - Write the running config to startup config on IOS devices
+>    - Gather the Admin mode running config from XR devices and save it to a file
 > - Execute your playbook and verify if the results meet the requirements.
 > - Solution playbook files (op31-runcfg-bkup.yml) are given in the appendix section 4.4 for your reference.
 
@@ -2057,17 +2058,17 @@ $ ls -l R[1-2]-OSPF*.txt
 ### Optional exercise
 
 > - Add the below requirements to the MOP playbook:
-  - Create a new playbook that compares the differences between the pre-capture and post-capture files.
-  - Hint: use the diff feature of the command module.
+>    - Create a new playbook that compares the differences between the pre-capture and post-capture files.
+>    - Hint: Use the command module to call the Linux diff utility.
 > - Execute your playbook and verify if the results meet the requirements.
 > - Solution playbook files (op33-diff.yml) are given in the appendix section 4.5 for your reference.
 
 
 ### Reference
 
-> copy module: http://docs.ansible.com/ansible/latest/modules/copy_module.html
-> meta module: http://docs.ansible.com/ansible/latest/modules/meta_module.html
-> pause: http://docs.ansible.com/ansible/latest/modules/pause_module.html
+> - copy module: http://docs.ansible.com/ansible/latest/modules/copy_module.html
+> - meta module: http://docs.ansible.com/ansible/latest/modules/meta_module.html
+> - pause module: http://docs.ansible.com/ansible/latest/modules/pause_module.html
 
 
 ### Example output
@@ -2400,7 +2401,7 @@ cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
 
 ```
 
-## 3.4 Generate iBGP Config
+## 3.4 Generate Device Configuration
 
 - Network configuration and rollouts are critical part of daily network operations.
 - This exercise will simulate a network config generation using Ansible Roles and Jinj2 to develop config templates.
@@ -3182,7 +3183,7 @@ $ sudo ansible-playbook p2-ioscmd.yml --ask-vault-pass
 
 ```
 $ sudo ansible-vault decrypt /etc/ansible/hosts
-
+```
 - Pay attention the owner and file privileges. Notice that the file permissions are not changed back to the original values.
 - Change the file permissions to the previous settings.
 - Make sure that the file permissions are: `-rw-r--r--`
@@ -3194,8 +3195,10 @@ $ sudo chmod 644 /etc/ansible/hosts
 
 $ ls -l /etc/ansible/hosts
 ```
+
 - Ensure the inventory file has been decrypted by view its content and executing a playbook.
 
+```
 $ cat /etc/ansible/hosts
 
 $ ansible-playbook p2-ioscmd.yml
@@ -3546,7 +3549,7 @@ R2                         : ok=2    changed=0    unreachable=0    failed=0
 ### Objective
 - Create a playbook, which will:
   - Detect router OS
-  - If a router has IOS, print message, "'hostname' is a IOS router" and if a router has XR, print, "'hostname' is a XR router"
+  - If a router has IOS, print message, "\<hostname\> is a IOS router" and if a router has XR, print, "\<hostname\> is a XR router"
   - Playbook needs to find the router names dynamically from the inventory file.
 
 ### Lab exercise
@@ -3729,7 +3732,7 @@ cisco@ansible-controller:~$ ls -ltr *run_cfg*
 
 ### Lab exercise
 - Create playbook, op33-diff.yml, to compare the pre-capture and post-capture files.
-- For diff, we can use command module with diff argument.
+- For the compare operation, we can use command module to call the Linux diff utility.
 
 ```
 cisco@ansible-controller:~$ vi op33-diff.yml
@@ -3830,6 +3833,7 @@ $ sudo apt-get update
 
 $ sudo apt-get install ansible
 ```
+- Note: Some Ubuntu releases have Ansible packages in their default repositories.  These are usually old and outdated versions, so it is highly recommended to use the above instructions to get the up-to-date version.
 
 ---
 
