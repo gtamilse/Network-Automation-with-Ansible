@@ -14,9 +14,9 @@
 - Get the following info from your proctor
 	- VPN server IP address
 	- VPN server credentials
-	- Ansible controller IP address
-	- R1 IOS router IP address
-	- R2 XR rotuer IP address
+	- Your assigned Ansible controller IP address
+	- Your assigned R1 IOS router IP address
+	- Your assigned R2 XR rotuer IP address
 	- Your lab devices credentials
 - Important: **Verify** your lab device IP addresses before proceeding
 
@@ -29,29 +29,30 @@
 	- Verify (from your laptop exec prompt):
 
 ```
-ping 172.16.101.93
+ping <Ansible-Controller-IP-Address>
 ```
 
 - Proceed if ping succeeds.
 
 ### SSH into your Ansible server
 - SSH into your Ansible server using any SSH client
-	- Find your pods node IP from below link
-	- [Lab pod assignment](./TECDEV-4500-Pod-Assignment.md)
+        - Putty is provided on CiscoLive lab computers
+        - Find your pod's server IP from below link
+	- [Lab pod assignment](./TECDEV-1500-Pod-Assignment.md)
 
 ### Verification
 - Execute the below from your Ansible Controller $ prompt
 
 ```
-$ ifconfig eth0
+$ ifconfig ens3
 
-$ ping IP-of-your-IOS-router
+$ ping <IP-of-your-IOS-router>
 
-$ ping IP-of-your-XR-router
+$ ping <IP-of-your-XR-router>
 ```
 
 - **Make sure:**
-	- Eth0 IP address matches with **your assigned controller IP**
+	- Ens3 IP address matches with **your assigned controller IP**
 	- Ping to both IOS and XR routers succeed
 
 ### Example output
