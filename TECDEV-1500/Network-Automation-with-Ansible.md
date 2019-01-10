@@ -414,8 +414,9 @@ cisco@ansible-controller:~$ vi p1-raw.yml
         show ip interface brief
 ```
 - Predict the outcome of this playbook.
-- Execute the play book using the commands below, it normal to see blank outputs in the initial commands below.
-  - Note: Its always good to use the --syntax-check option first to ensure the playbook does not contain any syntax errors.
+- Execute the play book using the commands below.
+  - Note: It is good practice to use the --syntax-check option first to ensure the playbook does not contain any syntax errors before execution.
+  - Note: The Syntax check output will be blank if there are no errors.  Output is expected only if errors are present.
 
 ```
 $ ansible-playbook p1-raw.yml --syntax-check
@@ -447,13 +448,14 @@ cisco@ansible-controller:~$ vi p1a-raw.yml
 ```
 - Predict the outcome of this playbook.
 - Execute the playbook
+  - Note: --step will cause Ansible to prompt you before executing each task. Answer with "Y" to execute the task, with "N" to skip the task, and "c" to continue the rest of the playbook without further prompts
 
 ```
 $ ansible-playbook p1a-raw.yml --syntax-check
 
-$ ansible-playbook p1a-raw.yml --step
-
 $ ansible-playbook p1a-raw.yml
+
+$ ansible-playbook p1a-raw.yml --step
 
 $ ansible-playbook p1a-raw.yml -v
 ```
@@ -702,6 +704,7 @@ cisco@ansible-controller:~$ vi p4-iosconfig.yml
           - shutdown
 ```
 
+- Verify loopback101 interface does not already exist
 - Execute the playbook
 - Check if loopback101 interface is created by p4-iosconfig.yml playbook
 
@@ -904,7 +907,7 @@ $ ansible-playbook p6-vars.yml
 
 ### Conclusion
 - In this section you created variables inside a playbook and recalled the variables to complete a task execution.
-- When multiple commands are present, the "register" variable becomes an array to store the multiplee command outputs. We used BLAH.stdout_lines[n] to print them out separately.
+- When multiple commands are given to the ios_command module, the results of each command output are stored in individual <variable>.stdout_lines array items.  They can be recalled individually by referencing their order in the array.  Ex:  <variable>.stdout_lines[n]
 - Review the section and discuss if you have any questions.
 
 ### Reference
@@ -1216,7 +1219,7 @@ $ ansible-playbook p8-conditionals.yml -v
 > - Create a playbook, which will:
 >   - Detect router OS
 >   - If a router has IOS, print message, "'hostname' is a IOS router" and if a router has XR, print, "'hostname' is a XR router"
->   - Playbook need to find the router names dynamically from the inventory file.
+>   - Playbook needs to find the router names dynamically from the inventory file.
 > - Solution playbook is included in the appendix section 4.3 (op28-conditionals.yml).
 
 
