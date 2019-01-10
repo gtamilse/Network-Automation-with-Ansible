@@ -70,15 +70,15 @@ grep -v "#" /etc/ansible/ansible.cfg | grep -v ^$
 ```
 - Above command output shows an empty default config section, you will edit/uncomment the following settings, under [default] section:
   - inventory  = /etc/ansible/hosts
-  - deprecation_warnings = False
   - gathering = explicit
   - host_key_checking = False
   - timeout = 10
+  - deprecation_warnings = False
   - retry_files_enabled = False
 
 - Edit the config file
   - Use your favorite editing method to edit the file
-  - Use sudo if needed, sudo password is cisco
+  - Root privileges are required to edit /etc/ansible/ansible.cfg, sudo password is cisco
   - Ubuntu inbuilt editors: vi, vim, or nano
   - [VI reference](./vi-reference.md)
 
@@ -88,8 +88,8 @@ sudo vi /etc/ansible/ansible.cfg
 
 - The target config lines are already there in the file but are commented. Simply delete # at the beginning of the line.
 
-  - Note: gathering = implicit will need to be changed to explicit
-  - Note: deprecation_warnings = True will need to be changed to False.
+  - Note: *gathering = implicit* will need to be changed to *explicit*
+  - Note: *deprecation_warnings = True* will need to be changed to *False*
 
 - After editing, the config file will look like below.
 
@@ -129,14 +129,15 @@ retry_files_enabled = False
 ## 1.2 Inventory file
 - Edit your default inventory file: /etc/ansible/hosts
 - Create two device groups: IOS and XR
+- Create one explicit parent group: ALL
 - Assign the following variables to the devices: ansible_user=cisco ansible_ssh_pass=cisco
 - Find out your IOS and XR router mgmt IP addresses from the pod assignment sheet. Plug them in the file below.
 - Edit the hosts file
   - Ubuntu inbuilt editors: vi, vim, or nano
-  - Use sudo if needed, sudo password is cisco
+  - Root priviliges are required to edit /etc/ansible/hosts, sudo password is cisco
   - [VI reference](./vi-reference.md)
 ```
-vi /etc/ansible/hosts
+sudo vi /etc/ansible/hosts
 ```
 
 ### Example output
@@ -206,6 +207,7 @@ XR
 
 ```
 $ ansible-doc --help
+$ ansible-doc -l | wc -l
 $ ansible-doc -l | grep ^ios_
 $ ansible-doc -l | grep iosxr
 $ ansible-doc -l
@@ -287,7 +289,7 @@ cisco@ansible-controller:~$
 - Execute the below ad-hoc commands (from your home directory, /home/cisco)
 
 ```
-$ ansible IOS -m raw -a "show ip int brief "
+$ ansible IOS -m raw -a "show ip int brief"
 $ ansible ALL -m raw -a "show clock"
 $ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
 $ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
