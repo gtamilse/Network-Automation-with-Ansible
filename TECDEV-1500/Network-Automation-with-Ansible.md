@@ -463,6 +463,7 @@ $ ansible-playbook p1a-raw.yml -v
 ### Conclusion
 
 - In this section you used the raw module to collect and display command output from devices that are in the group, named ALL.
+- Raw is a barebones module that simply executes a command via an SSH connection and returns the resulting text.
 - Review the section and discuss if you have any questions.
 
 
@@ -563,6 +564,7 @@ $ ansible-playbook p2-ioscmd.yml
 
 ### Conclusion
 - In this section you used the ios_command module to collect and display command output from an IOS device.
+- The ios_command module provides additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (failed, changed return values).
 - Review the section and discuss if you have any questions.
 
 ### Reference
@@ -866,6 +868,7 @@ R2 | SUCCESS => {
 - Create a playbook, p6-vars.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p6-vars.yml
 ---
 - name: get config of gig1 and gig2
   hosts: IOS
