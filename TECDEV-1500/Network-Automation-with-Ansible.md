@@ -294,7 +294,9 @@ $ ansible ALL -m raw -a "show clock"
 $ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
 $ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
 ```
-
+- Raw is a barebones module that simply executes a command via an SSH connection and returns the resulting text.
+- The ios_command module provides additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (ex: failed and changed statuses).
+- Note: ios_command and iosxr_command require the "--connection local" flag.  Networking modules do not use the default connection types (SSH) because most network hosts run limited execution environments that do not provide native Python.  Ansible modules using SSH connection type rely on Python scripts to be transferred and executed on the target node, whereas network modules are executed on the Ansible host (locally) and use other connection providers to interact with the target system.
 
 ### Optional exercises
 
@@ -463,7 +465,6 @@ $ ansible-playbook p1a-raw.yml -v
 ### Conclusion
 
 - In this section you used the raw module to collect and display command output from devices that are in the group, named ALL.
-- Raw is a barebones module that simply executes a command via an SSH connection and returns the resulting text.
 - Review the section and discuss if you have any questions.
 
 
@@ -564,7 +565,6 @@ $ ansible-playbook p2-ioscmd.yml
 
 ### Conclusion
 - In this section you used the ios_command module to collect and display command output from an IOS device.
-- The ios_command module provides additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (failed, changed return values).
 - Review the section and discuss if you have any questions.
 
 ### Reference
@@ -1189,20 +1189,22 @@ cisco@ansible-controller:~$ vi p8-conditionals.yml
       register: SHVER
 
     - name: run "show ip route summ" on IOS routers
-      when: SHVER.stdout | join('') is search('IOS XE')
+      when: '"IOS XE" in SHVER.stdout'
       raw: show ip route summary
 
       register: IOSRT
 
     - debug: var=IOSRT.stdout_lines
+      when: IOSRT.stdout_lines is defined
 
     - name: run "show route summ" on XR routers
-      when: SHVER.stdout | join('') is search('IOS XR')
+      when: '"IOS XR" in SHVER.stdout'
       raw: show route summary
 
       register: XRRT
 
     - debug: var=XRRT.stdout_lines
+      when: XRRT.stdout_lines is defined
 ```
 
 - Predict the outcome of executing the above playbook
@@ -1643,12 +1645,12 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
     - name: Platform Hardware Check
       debug:
         msg: " {{ inventory_hostname }} show_platform indicates card is down"
-      when: iosxr_mon.results[0].stdout_lines | join('') | search('Down')
+      when: '"Down" in iosxr_mon.results[0].stdout[0]'
 
     - name: Redundancy Check
       debug:
         msg: " {{ inventory_hostname }} show_redundancy indicates card is not present"
-      when: iosxr_mon.results[1].stdout_lines | join('') | search('NSR not ready since Standby is not Present')
+      when: '"NSR not ready since Standby is not Present" in iosxr_mon.results[1].stdout[0]'
 
     - name: CPU Utilization Check
       debug:
@@ -1665,7 +1667,7 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
     - name: Down Interface Checks
       debug:
         msg: " {{ inventory_hostname }} Interface is Down"
-      when: iosxr_mon.results[4].stdout_lines | join('') | search('Down')
+      when: '"Down" in iosxr_mon.results[4].stdout[0]'
 
     - name: Route Summary Check
       debug:
@@ -1679,21 +1681,21 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
         msg:
           - " {{ inventory_hostname }} OSPF Neighbor Summary: "
           - " {{ iosxr_mon.results[6].stdout_lines }}"
-      when: iosxr_mon.results[6].stdout_lines | join('') | search('OSPF')
+      when: '"OSPF" in iosxr_mon.results[6].stdout[0]'
 
     - name: MPLS Neighbor Check
       debug:
         msg:
           - " {{ inventory_hostname }} MPLS LDP Summary: "
           - " {{ iosxr_mon.results[7].stdout_lines }}"
-      when: iosxr_mon.results[7].stdout_lines | join('') | search ('Id')
+      when: '"Id" in iosxr_mon.results[7].stdout[0]'
 
     - name: BGP Neighbor Check
       debug:
         msg:
           - " {{ inventory_hostname }} BGP Sessions Down: "
           - " {{ iosxr_mon.results[8].stdout_lines }} "
-      when: iosxr_mon.results[8].stdout_lines | join('') | search('Active')
+      when: '"Active" in iosxr_mon.results[8].stdout[0]'
 ```
 
 #### Step-2: Run the playbook
@@ -1933,7 +1935,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
       register: IOS_OSPF
 
     - meta: end_play
-      when: IOS_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in IOS_OSPF.stdout[0]'
 
     - name: configure IOS ospf
       ios_config:
@@ -1958,7 +1960,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
       register: XR_OSPF
 
     - meta: end_play
-      when: XR_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in XR_OSPF.stdout[0]'
 
     - name: configure XR ospf
       iosxr_config:
@@ -2181,7 +2183,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
       register: IOS_OSPF
 
     - meta: end_play
-      when: IOS_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in IOS_OSPF.stdout[0]'
 
     - name: configure IOS ospf
       ios_config:
@@ -2206,7 +2208,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
       register: XR_OSPF
 
     - meta: end_play
-      when: XR_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in XR_OSPF.stdout[0]'
 
     - name: configure XR ospf
       iosxr_config:
@@ -3574,12 +3576,12 @@ cisco@ansible-controller:~$ vi op28-conditionals.yml
     - name: print IOS host
       debug:
         msg: "{{ inventory_hostname }} is an IOS Router."
-      when: OS.stdout | join('') | search('IOS XE')
+      when: '"IOS XE" in OS.stdout'
 
     - name: print XR host
       debug:
         msg: "{{ inventory_hostname }} is an XR Router."
-      when: OS.stdout | join('') | search('IOS XR')
+      when: '"IOS XR" in OS.stdout'
 ```
 
 ### Example output
