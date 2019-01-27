@@ -10,8 +10,11 @@
 # [Lab pod assignment](./TECDEV-1500-Pod-Assignment.md)
 # [Lab access](./lab-access.md)
 # [Lab guide](./Network-Automation-with-Ansible.md)
-# [Lecture Slides](./Network-Automation-with-Ansible.pdf)
+# [Lecture Slides](./TECDEV-1500-Network-Automation-with-Ansible.pdf)
 # [Playbook files](./playbooks)
 # [VI reference](./vi-reference.md)
 
 ---
+
+
+Network-Automation-with-Ansible
