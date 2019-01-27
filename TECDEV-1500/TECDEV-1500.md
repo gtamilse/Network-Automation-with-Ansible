@@ -15,6 +15,3 @@
 # [VI reference](./vi-reference.md)
 
 ---
-
-
-Network-Automation-with-Ansible
