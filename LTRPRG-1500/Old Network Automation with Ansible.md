@@ -1,25 +1,25 @@
 # **<p align="center">Network Automation with Ansible</p>**
-# **<p align="center">TECDEV-4500</p>**
+# **<p align="center">LTRPRG-1500</p>**
 
 ---
 # **<p align="center">Lab Guide</p>**
 
 ---
- **<p align="center">Gopal Naganaboyina | Gowtham Tamilselvan | Muthuraja Ayyanar | Yogi Raghunathan </p>**
+ **<p align="center">Gowtham Tamilselvan | Muthuraja Ayyanar | Yogi Raghunathan </p>**
 
- **<p align="center">July 2, 2018</p>**
+ **<p align="center">June 10 2019</p>**
 ---
 
 
 # Table of Contents
 
 
-- [1. Ansible introduction](#1-ansible-introduction)
+- [1. Ansible Introduction](#1-ansible-introduction)
 	- [1.1 Configuration file](#11-configuration-file)
 	- [1.2 Inventory file](#12-inventory-file)
 	- [1.3 Ansible modules](#13-ansible-modules)
 	- [1.4 Ad-hoc commands](#14-ad-hoc-commands)
-- [2. Playbook primer](#2-playbook-primer)
+- [2. Playbook Primer](#2-playbook-primer)
 	- [2.1 Raw module](#21-raw-module)
 	- [2.2 IOS command module](#22-ios-command-module)
 	- [2.3 XR command module](#23-xr-command-module)
@@ -29,17 +29,19 @@
 	- [2.7 Loops](#27-loops)
 	- [2.8 Conditionals](#28-conditionals)
 	- [2.9 Importing playbooks](#29-importing-playbooks)
-- [3. Automating common tasks](#3-automating-common-tasks)
+- [3. Automating Common Tasks](#3-automating-common-tasks)
 	- [3.1 Router config backup](#31-router-config-backup)
 	- [3.2 Device health monitoring](#32-device-health-monitoring)
-	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop)
-	- [3.4 Generate iBGP Config](#34-generate-ibgp-config)
+	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop-automation)
+	- [3.4 Generate Device Config](#34-generate-device-configuration)
 	- [3.5 Bulk Config Generation](#35-bulk-config-generation)
+  - [3.6 TextFSM Module](#36-textFSM-module)
+  - [3.7 Yogi Custom Module](#37-yogi-custom-module)
 - [4. Appendix](#4-appendix)
 	- [4.1 Ansible Vault](#41-ansible-vault)
-	- [4.2 Optional exercise op3-cmd.yml](#42-optional-exercise-op3-cmdyml)
-	- [4.3 Optional exercise op6-vars.yml](#43-optional-exercise-op6-varsyml)
-	- [4.4 Optional exercise op8-conditionals.yml](#44-optional-exercise-op8-conditionalsyml)
+	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op23-cmdyml)
+	- [4.3 Optional exercise op28-conditionals.yml](#43-optional-exercise-op28-conditionalsyml)
+	- [4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)](#44-optional-exercise-op31-runcfg-bkupyml-router-config-backup)
 	- [4.5 Optional exercise op33-mop.yml (MOP)](#45-optional-exercise-op33-mopyml-mop)
 	- [4.6 Ansible installation](#46-ansible-installation)
 	- [4.7 Reference](#47-reference)
@@ -68,32 +70,32 @@
 ```
 grep -v "#" /etc/ansible/ansible.cfg | grep -v ^$
 ```
-
-- In this section, you will edit/uncomment the following settings, under [default] section:
+- Above command output shows an empty default config section, you will edit/uncomment the following settings, under [default] section:
   - inventory  = /etc/ansible/hosts
-  - deprecation_warning = False
   - gathering = explicit
   - host_key_checking = False
   - timeout = 10
+  - deprecation_warnings = False
   - retry_files_enabled = False
 
 - Edit the config file
   - Use your favorite editing method to edit the file
-  - Use sudo if needed, sudo password is cisco
-  - Ubuntu inbuilt editors: vi, vim
+  - Root privileges are required to edit /etc/ansible/ansible.cfg, sudo password is cisco
+  - Ubuntu inbuilt editors: vi, vim, or nano
   - [VI reference](./vi-reference.md)
 
 ```
-vi /etc/ansible/ansible.cfg
+sudo vi /etc/ansible/ansible.cfg
 ```
 
 - The target config lines are already there in the file but are commented. Simply delete # at the beginning of the line.
 
+  - Note: *gathering = implicit* will need to be changed to *explicit*
+  - Note: *deprecation_warnings = True* will need to be changed to *False*
+
 - After editing, the config file will look like below.
 
-- Note: gathering = implicit will need to be changed to explicit
-
-### Sample output
+### Example output
 
 ```
 cisco@ansible-controller:~$ grep -v "^#" /etc/ansible/ansible.cfg | grep -v ^$
@@ -103,6 +105,7 @@ inventory      = /etc/ansible/hosts
 gathering = explicit
 host_key_checking = False
 timeout = 10
+deprecation_warnings = False
 retry_files_enabled = False
 [inventory]
 [privilege_escalation]
@@ -118,7 +121,7 @@ retry_files_enabled = False
 > This is for later use. Skip for now. http://docs.ansible.com/ansible/latest/reference_appendices/config.html#ansible-configuration-settings
 > - Changes can be made and used in a configuration file which will be searched for in the following order:
 >   - ANSIBLE_CONFIG (environment variable if set)
->   - ansible.cfg (in the current directory)
+>   - ./ansible.cfg (in the current directory)
 >   - ~/.ansible.cfg (in the home directory)
 >   - /etc/ansible/ansible.cfg
 > - Ansible will process the above list and use the first file found, all others are ignored.
@@ -128,25 +131,26 @@ retry_files_enabled = False
 ## 1.2 Inventory file
 - Edit your default inventory file: /etc/ansible/hosts
 - Create two device groups: IOS and XR
+- Create one explicit parent group: ALL
 - Assign the following variables to the devices: ansible_user=cisco ansible_ssh_pass=cisco
 - Find out your IOS and XR router mgmt IP addresses from the pod assignment sheet. Plug them in the file below.
 - Edit the hosts file
-  - Ubuntu inbuilt editors: vi, vim
-  - Use sudo if needed, sudo password is cisco
+  - Ubuntu inbuilt editors: vi, vim, or nano
+  - Root priviliges are required to edit /etc/ansible/hosts, sudo password is cisco
   - [VI reference](./vi-reference.md)
 ```
-vi /etc/ansible/hosts
+sudo vi /etc/ansible/hosts
 ```
 
 ### Example output
 ```
-cisco@ansible-controller:~$ vi /etc/ansible/hosts
+cisco@ansible-controller:~$ sudo vi /etc/ansible/hosts
 
 [IOS]
-R1 ansible_host=172.16.101.X ansible_user=cisco ansible_ssh_pass=cisco
+R1 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
 
 [XR]
-R2 ansible_host=172.16.101.X ansible_user=cisco ansible_ssh_pass=cisco
+R2 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
 
 [ALL:children]
 IOS
@@ -155,18 +159,34 @@ XR
 - Run the following verification commands:
 
 ```
-$ ansible --list-hosts IOS
-$ ansible --list-hosts XR
-$ ansible --list-hosts ALL
-$ ansible --list-hosts all
+cisco@ansible-controller:~$ ansible --list-hosts IOS
+  hosts (1):
+    R1
+cisco@ansible-controller:~$ ansible --list-hosts XR
+  hosts (1):
+    R2
+cisco@ansible-controller:~$ ansible --list-hosts ALL
+  hosts (2):
+    R1
+    R2
+cisco@ansible-controller:~$ ansible --list-hosts all
+  hosts (2):
+    R2
+    R1
 ```
-### Example output
+- By default there are two implicit groups in Ansible: "all" and "ungrouped"
+  - "all" contains every host defined in the inventory file
+  - "ungrouped" contains all hosts that don't have an explicit group assigned
+
+- Verify the ansible.cfg and hosts files are accurate. (XX should contain numbers for your specific devices)
 
 ```
 cisco@ansible-controller:~$ grep inventory /etc/ansible/ansible.cfg | grep hosts
+
 inventory      = /etc/ansible/hosts
 
 cisco@ansible-controller:~$ grep -v "#" /etc/ansible/hosts | grep -v ^$
+
 [IOS]
 R1	ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
 [XR]
@@ -174,12 +194,12 @@ R2	ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
 [ALL:children]
 IOS
 XR
-:
+
 ```
 ### Reference
 
 > - This snippet is for future reference.  http://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html
-> - It is possible to have multiple inventory files.
+> - Ansible can support multiple inventory files.
 
 ---
 
@@ -189,6 +209,7 @@ XR
 
 ```
 $ ansible-doc --help
+$ ansible-doc -l | wc -l
 $ ansible-doc -l | grep ^ios_
 $ ansible-doc -l | grep iosxr
 $ ansible-doc -l
@@ -222,7 +243,9 @@ Options:
 
 See man pages for Ansible CLI options or website for tutorials
 https://docs.ansible.com
-cisco@ansible-controller:~$
+
+cisco@ansible-controller:~$ ansible-doc -l | wc -l
+2080
 cisco@ansible-controller:~$ ansible-doc -l | grep ^ios_
 ios_banner                                           Manage multiline banners on Cisco IOS devices
 ios_command                                          Run commands on remote devices running Cisco IOS
@@ -252,8 +275,6 @@ iosxr_system                                         Manage the system attribute
 iosxr_user                                           Manage the aggregate of local users on Cisco IOS XR devic...
 cisco@ansible-controller:~$ ansible-doc -l | grep iosxr | wc -l
 9
-cisco@ansible-controller:~$ ansible-doc -l | wc -l
-1652
 cisco@ansible-controller:~$
 ```
 ### Reference
@@ -264,18 +285,20 @@ cisco@ansible-controller:~$
 ---
 
 ## 1.4 Ad-hoc commands
-- Let us use a few modules in this section: `raw`, `ios_command`, and `iosxr_command`
+- Let's use a few modules in this section: `raw`, `ios_command`, and `iosxr_command`
 - Syntax: `ansible <devices> -m <module> -a <command>`
 	- devices must exist in the inventory file
 - Execute the below ad-hoc commands (from your home directory, /home/cisco)
 
 ```
-$ ansible --list-hosts IOS
+$ ansible IOS -m raw -a "show ip int brief"
 $ ansible ALL -m raw -a "show clock"
 $ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
 $ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
 ```
-
+- Raw is a barebones module that simply executes a command via an SSH connection and returns the resulting text.
+- The ios_command module provides additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (ex: failed and changed statuses).
+- Note: ios_command and iosxr_command require the "--connection local" flag.  Networking modules do not use the default connection types (SSH) because most network hosts run limited execution environments that do not provide native Python.  Ansible modules using SSH connection type rely on Python scripts to be transferred and executed on the target node, whereas network modules are executed on the Ansible host (locally) and use other connection providers to interact with the target system.
 
 ### Optional exercises
 
@@ -297,41 +320,34 @@ $ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
 ### Example output
 
 ```
-cisco@ansible-controller:~$ ansible --list-hosts IOS
-  hosts (1):
-    172.16.101.91
-cisco@ansible-controller:~$ ansible --list-hosts XR
-  hosts (1):
-    172.16.101.92
-cisco@ansible-controller:~$ ansible --list-hosts ALL
-  hosts (2):
-    172.16.101.91
-    172.16.101.92
-cisco@ansible-controller:~$ ansible --list-hosts all
-  hosts (2):
-    172.16.101.91
-    172.16.101.92
-cisco@ansible-controller:~$
+cisco@ansible-controller:~$ ansible IOS -m raw -a "show ip int bri"
+R1 | CHANGED | rc=0 >>
+
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet1       172.16.101.191  YES TFTP   up                    up      
+GigabitEthernet2       10.0.0.5        YES TFTP   up                    up      
+Loopback0              192.168.0.1     YES TFTP   up                    up      Shared connection to 172.16.101.191 closed.
+
+
 cisco@ansible-controller:~$ ansible ALL -m raw -a "show clock"
-172.16.101.91 | SUCCESS | rc=0 >>
+R1 | CHANGED | rc=0 >>
 
-*03:27:05.914 UTC Sun Jun 3 2018Shared connection to 172.16.101.91 closed.
-Connection to 172.16.101.91 closed by remote host.
-
-
-172.16.101.92 | SUCCESS | rc=0 >>
+*01:04:55.419 UTC Tue Jan 8 2019Shared connection to 172.16.101.191 closed.
 
 
-Sun Jun  3 03:28:36.549 UTC
-03:28:36.589 UTC Sun Jun 3 2018
+R2 | CHANGED | rc=0 >>
+
+
+Tue Jan  8 01:05:02.562 UTC
+01:05:02.612 UTC Tue Jan 8 2019
 
 :
 
 cisco@ansible-controller:~$ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
-172.16.101.91 | SUCCESS => {
+R1 | SUCCESS => {
     "changed": false,
     "stdout": [
-        "IP routing table name is default (0x0)\nIP routing table maximum-paths is 32\nRoute Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)\napplication     0           0           0           0           0\nconnected       0           4           0           384         1216\nstatic          0           0           0           0           0\nospf 1          0           1           0           96          308\n  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0\n  NSSA External-1: 0 NSSA External-2: 0\nbgp 1           0           0           0           0           0\n  External: 0 Internal: 0 Local: 0\ninternal        3                                               1432\nTotal           3           5           0           480         2956"
+        "IP routing table name is default (0x0)\nIP routing table maximum-paths is 32\nRoute Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)\napplication     0           0           0           0           0\nconnected       0           3           0           288         912\nstatic          0           0           0           0           0\ninternal        2                                               968\nTotal           2           3           0           288         1880"
     ],
     "stdout_lines": [
         [
@@ -339,33 +355,26 @@ cisco@ansible-controller:~$ ansible IOS --connection local -m ios_command -a "co
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
-            "ospf 1          0           1           0           96          308",
-            "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
-            "  NSSA External-1: 0 NSSA External-2: 0",
-            "bgp 1           0           0           0           0           0",
-            "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               968",
+            "Total           2           3           0           288         1880"
         ]
     ]
 }
 cisco@ansible-controller:~$ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
-172.16.101.92 | SUCCESS => {
+R2 | SUCCESS => {
     "changed": false,
     "stdout": [
-        "Route Source                     Routes     Backup     Deleted     Memory(bytes)\nlocal                            5          0          0           800          \nconnected                        1          4          0           800          \ndagr                             0          0          0           0            \nospf 1                           1          0          0           160          \nbgp 1                            0          0          0           0            \nTotal                            7          4          0           1760"
+        "Route Source                     Routes     Backup     Deleted     Memory(bytes)\nconnected                        1          1          0           320          \nlocal                            2          0          0           320          \ndagr                             0          0          0           0            \nTotal                            3          1          0           640"
     ],
     "stdout_lines": [
         [
             "Route Source                     Routes     Backup     Deleted     Memory(bytes)",
-            "local                            5          0          0           800          ",
-            "connected                        1          4          0           800          ",
+            "connected                        1          1          0           320          ",
+            "local                            2          0          0           320          ",
             "dagr                             0          0          0           0            ",
-            "ospf 1                           1          0          0           160          ",
-            "bgp 1                            0          0          0           0            ",
-            "Total                            7          4          0           1760"
+            "Total                            3          1          0           640"
         ]
     ]
 }
@@ -375,10 +384,9 @@ cisco@ansible-controller:~$ ansible XR --connection local -m iosxr_command -a "c
 
 # 2. Playbook primer
 - Ansible playbook exercises require creating YAML style playbook files.
-- There are two options to create playbook files.
-	- Option-1: Create the file in "Atom" editor, on the laptop. Atom is preconfigured with remote-sync: when you save the file in the default local directory(cl2018), it will automatically get copied to the home directory of your Ansible controller (/home/cisco).
-	- Option-2: Use Ubuntu's "vi" or "vim" editor, which is included in your Ansible controller.
-- The following topics are covered:
+- Use Ubuntu's "vi" or "vim" or "nano" editor, which is included in your Ansible controller to create YAML playbook files.
+
+- The following topics are covered in this section:
   - Raw Module
   - IOS Command Module
   - XR Command Module
@@ -392,10 +400,14 @@ cisco@ansible-controller:~$ ansible XR --connection local -m iosxr_command -a "c
 ## 2.1 Raw module
 ### Lab exercise
 
-- Use the raw module in a playbook
-- Create a playbook file (p1-raw.yml) with the below content, in your home directory
+- Use the raw module in a playbook.
+- Create a playbook file (p1-raw.yml) with the below content, in your home directory.
 
 ```
+cisco@ansible-controller:~$ pwd
+/home/cisco
+
+cisco@ansible-controller:~$ vi p1-raw.yml
 ---
 - name: get interface info from all hosts
   hosts: ALL
@@ -406,12 +418,12 @@ cisco@ansible-controller:~$ ansible XR --connection local -m iosxr_command -a "c
         show ip interface brief
 ```
 - Predict the outcome of this playbook.
-- Execute the play book:
+- Execute the play book using the commands below.
+  - Note: It is good practice to use the --syntax-check option first to ensure the playbook does not contain any syntax errors before execution.
+  - Note: The Syntax check output will be blank if there are no errors.  Output is expected only if errors are present.
 
 ```
 $ ansible-playbook p1-raw.yml --syntax-check
-
-$ ansible-playbook p1-raw.yml --step
 
 $ ansible-playbook p1-raw.yml
 
@@ -422,14 +434,15 @@ $ ansible-playbook p1-raw.yml -v
 - Create another playbook p1a-raw.yml, to always print the output from the routers.
 
 ```
+cisco@ansible-controller:~$ vi p1a-raw.yml
 ---
 - name: get interface info from all hosts
   hosts: ALL
 
   tasks:
-    - name: execute show intf
+    - name: execute show ip interface brief
       raw:
-        show ip int br
+        show ip interface brief
 
       register: P2_RAW_OUTPUT
 
@@ -439,11 +452,14 @@ $ ansible-playbook p1-raw.yml -v
 ```
 - Predict the outcome of this playbook.
 - Execute the playbook
+  - Note: --step will cause Ansible to prompt you before executing each task. Answer with "Y" to execute the task, with "N" to skip the task, and "c" to continue the rest of the playbook without further prompts
 
 ```
 $ ansible-playbook p1a-raw.yml --syntax-check
 
 $ ansible-playbook p1a-raw.yml
+
+$ ansible-playbook p1a-raw.yml --step
 
 $ ansible-playbook p1a-raw.yml -v
 ```
@@ -457,60 +473,60 @@ $ ansible-playbook p1a-raw.yml -v
 ### Example output
 
 ```
+cisco@ansible-controller:~$ ansible-playbook p1-raw.yml --syntax-check
+
+playbook: p1-raw.yml
 cisco@ansible-controller:~$ ansible-playbook p1-raw.yml
 
-PLAY [get time from all hosts, using raw module] ******************************************************************
+PLAY [get interface info from all hosts] **************************************************************************************************************************
 
-TASK [execute show clock] *****************************************************************************************
-changed: [172.16.101.91]
-changed: [172.16.101.92]
+TASK [execute show ip interface brief] ****************************************************************************************************************************
+changed: [R1]
+changed: [R2]
 
-PLAY RECAP ********************************************************************************************************
-172.16.101.91              : ok=1    changed=1    unreachable=0    failed=0
-172.16.101.92              : ok=1    changed=1    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=1    changed=1    unreachable=0    failed=0   
+R2                         : ok=1    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
-cisco@ansible-controller:~$ ansible-playbook p1a-raw --syntax-check
 
-playbook: p1a-raw
-cisco@ansible-controller:~$ ansible-playbook p1a-raw
+cisco@ansible-controller:~$ ansible-playbook p1a-raw.yml --syntax-check
 
-PLAY [get interface info from all hosts] *************************************************************
+playbook: p1a-raw.yml
+cisco@ansible-controller:~$ ansible-playbook p1a-raw.yml
 
-TASK [execute show intf] *****************************************************************************
-changed: [172.16.101.91]
-changed: [172.16.101.92]
+PLAY [get interface info from all hosts] **************************************************************************************************************************
 
-TASK [print data saved in the variable] **************************************************************
-ok: [172.16.101.91] => {
-    "P3_RAW_OUTPUT.stdout_lines": [
-        "",
-        "Interface              IP-Address      OK? Method Status                Protocol",
-        "GigabitEthernet1       172.16.101.91   YES TFTP   up                    up      ",
-        "GigabitEthernet2       10.0.0.5        YES TFTP   up                    up      ",
-        "Loopback0              192.168.0.1     YES TFTP   up                    up      ",
-        "Loopback1              1.1.1.1         YES manual up                    up      "
-    ]
-}
-ok: [172.16.101.92] => {
-    "P3_RAW_OUTPUT.stdout_lines": [
+TASK [execute show ip interface brief] ****************************************************************************************************************************
+changed: [R1]
+changed: [R2]
+
+TASK [print data saved in the variable] ***************************************************************************************************************************
+ok: [R2] => {
+    "P2_RAW_OUTPUT.stdout_lines": [
         "",
         "",
-        "Sun Jun  3 19:07:57.578 UTC",
+        "Tue Jan  8 01:20:08.420 UTC",
         "",
         "Interface                      IP-Address      Status          Protocol Vrf-Name",
         "Loopback0                      192.168.0.2     Up              Up       default ",
-        "Loopback1                      1.1.1.2         Up              Up       default ",
-        "Loopback99                     1.1.1.99        Up              Up       default ",
-        "Loopback102                    1.1.1.102       Up              Up       default ",
-        "MgmtEth0/0/CPU0/0              172.16.101.92   Up              Up       Mgmt-intf",
+        "MgmtEth0/0/CPU0/0              172.16.101.192  Up              Up       Mgmt-intf",
         "GigabitEthernet0/0/0/0         10.0.0.6        Up              Up       default "
     ]
 }
+ok: [R1] => {
+    "P2_RAW_OUTPUT.stdout_lines": [
+        "",
+        "Interface              IP-Address      OK? Method Status                Protocol",
+        "GigabitEthernet1       172.16.101.191  YES TFTP   up                    up      ",
+        "GigabitEthernet2       10.0.0.5        YES TFTP   up                    up      ",
+        "Loopback0              192.168.0.1     YES TFTP   up                    up      "
+    ]
+}
 
-PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=1    unreachable=0    failed=0
-172.16.101.92              : ok=2    changed=1    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=2    changed=1    unreachable=0    failed=0   
+R2                         : ok=2    changed=1    unreachable=0    failed=0   
+
 ```
 
 ---
@@ -518,9 +534,10 @@ PLAY RECAP *********************************************************************
 ## 2.2 IOS command module
 ### Lab exercise
 - Use the ios_command to execute some exec level commands on IOS devices.
-- Create a playbook, p2-ioscmd.yml, with the below contents
+- Create a playbook, p2-ioscmd.yml, with the below content, in your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p2-ioscmd.yml
 ---
 - name: collect ip route summary from all IOS devices
   hosts: IOS
@@ -550,7 +567,7 @@ $ ansible-playbook p2-ioscmd.yml
 
 ### Conclusion
 - In this section you used the ios_command module to collect and display command output from an IOS device.
-- Review the section and discuss if you have any questions
+- Review the section and discuss if you have any questions.
 
 ### Reference
 
@@ -566,34 +583,29 @@ $ ansible-playbook p2-ioscmd.yml
 ```
 cisco@ansible-controller:~$ ansible-playbook p2-ioscmd.yml
 
-PLAY [collect ip route summary from all IOS devices] **************************************************************
+PLAY [collect ip route summary from all IOS devices] **************************************************************************************************************
 
-TASK [execute route summary command] ******************************************************************************
-ok: [172.16.101.91]
+TASK [execute route summary command] ******************************************************************************************************************************
+ok: [R1]
 
-TASK [print output] ***********************************************************************************************
-ok: [172.16.101.91] => {
+TASK [print output] ***********************************************************************************************************************************************
+ok: [R1] => {
     "P2_OUTPUT.stdout_lines": [
         [
             "IP routing table name is default (0x0)",
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
-            "ospf 1          0           1           0           96          308",
-            "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
-            "  NSSA External-1: 0 NSSA External-2: 0",
-            "bgp 1           0           0           0           0           0",
-            "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               968",
+            "Total           2           3           0           288         1880"
         ]
     ]
 }
 
-PLAY RECAP ********************************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0
 ```
 
 ---
@@ -601,9 +613,10 @@ PLAY RECAP *********************************************************************
 ## 2.3 XR command module
 ### Lab exercise
 - Use the iosxr_command to execute some exec level commands on XR devices.
-- Create a playbook, p3-xrcmd.yml, with the below contents
+- Create a playbook, p3-xrcmd.yml, with the below content, in your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p3-xrcmd.yml
 ---
 - name: collect ip route summary from all XR devices
   hosts: XR
@@ -636,11 +649,11 @@ $ ansible-playbook p3-xrcmd.yml
 ### Optional exercise
 > - Do this section if you are ahead of schedule, else skip and come back later.
 > - This lab will be available for you to work for a few days after Cisco Live. You have the option of doing this later as well.
-> - Write a playbook, op3-cmd.yml, to meet the below requirements:
+> - Write a playbook, op23-cmd.yml, to meet the below requirements:
 >   - Collect output of route summary from both IOS and XR routers
 >   - Use the modules, ios_command and iosxr_command
 >   - Write 2 plays within one playbook.
-> - Playbook solution is in the appendix section (op3-cmd.yml).
+> - Playbook solution is in the appendix section 4.2 (op23-cmd.yml).
 
 ### Example output
 ```
@@ -649,28 +662,26 @@ cisco@ansible-controller:~$ ansible-playbook p3-xrcmd.yml --syntax-check
 playbook: p3-xrcmd.yml
 cisco@ansible-controller:~$ ansible-playbook p3-xrcmd.yml
 
-PLAY [collect ip route summary from all XR devices] ***************************************************************
+PLAY [collect ip route summary from all XR devices] ***************************************************************************************************************
 
-TASK [execute route summary command] ******************************************************************************
-ok: [172.16.101.92]
+TASK [execute route summary command] ******************************************************************************************************************************
+ok: [R2]
 
-TASK [print output] ***********************************************************************************************
-ok: [172.16.101.92] => {
+TASK [print output] ***********************************************************************************************************************************************
+ok: [R2] => {
     "P3_OUTPUT.stdout_lines": [
         [
             "Route Source                     Routes     Backup     Deleted     Memory(bytes)",
-            "local                            4          0          0           640          ",
-            "connected                        1          3          0           640          ",
+            "connected                        1          1          0           320          ",
+            "local                            2          0          0           320          ",
             "dagr                             0          0          0           0            ",
-            "ospf 1                           1          0          0           160          ",
-            "bgp 1                            0          0          0           0            ",
-            "Total                            6          3          0           1440"
+            "Total                            3          1          0           640"
         ]
     ]
 }
 
-PLAY RECAP ********************************************************************************************************
-172.16.101.92              : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R2                         : ok=2    changed=0    unreachable=0    failed=0  
 ```
 
 ---
@@ -678,9 +689,10 @@ PLAY RECAP *********************************************************************
 ## 2.4 IOS config module
 ### Lab exercise
 - Use ios_config module to configure a loopback interface on an IOS router.
-- Create a playbook, p4-iosconfig.yml, with the below contents:
+- Create a playbook, p4-iosconfig.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p4-iosconfig.yml
 ---
 - name: configure loopback1 interface on IOS devices
   hosts: IOS
@@ -696,15 +708,18 @@ PLAY RECAP *********************************************************************
           - shutdown
 ```
 
+- Verify loopback101 interface does not already exist
 - Execute the playbook
 - Check if loopback101 interface is created by p4-iosconfig.yml playbook
 
 ```
-$ ansible IOS -m raw -a "show run int loop101"
+$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+
+$ ansible-playbook p4-iosconfig.yml --syntax-check
 
 $ ansible-playbook p4-iosconfig.yml
 
-$ ansible IOS -m raw -a "show run int loop101"
+$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
 ```
 
 ### Conclusion
@@ -713,45 +728,56 @@ $ ansible IOS -m raw -a "show run int loop101"
 
 ### Example output
 ```
-cisco@ansible-controller:~$ ansible IOS -m raw -a "show run int loop101"
-172.16.101.91 | SUCCESS | rc=0 >>
+cisco@ansible-controller:~$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+R1 | FAILED! => {
+    "changed": false,
+    "msg": "show run int loop101\r\n                          ^\r\n% Invalid input detected at '^' marker.\r\n\r\nR1-CSR1K#"
+}
 
-Line has invalid autocommand "show run int loop101"Shared connection to 172.16.101.91 closed.
-Connection to 172.16.101.91 closed by remote host.
+cisco@ansible-controller:~$ ansible-playbook p4-iosconfig.yml --syntax-check
 
+playbook: p4-iosconfig.yml
 
 cisco@ansible-controller:~$ ansible-playbook p4-iosconfig.yml
 
-PLAY [configure loopback1 interface on IOS devices] **********************************************************************************************
+PLAY [configure loopback1 interface on IOS devices] ***************************************************************************************************************
 
-TASK [configure loopback101 interface] ***********************************************************************************************************
-changed: [172.16.101.91]
+TASK [configure loopback101 interface] ****************************************************************************************************************************
+changed: [R1]
 
-PLAY RECAP ***************************************************************************************************************************************
-172.16.101.91              : ok=1    changed=1    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=1    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$ ansible IOS -m raw -a "show run int loop101"
-172.16.101.91 | SUCCESS | rc=0 >>
-
-Building configuration...
-
-Current configuration : 98 bytes
-!
-interface Loopback101
- description test config by p4
- ip address 1.1.1.101 255.255.255.255
-end
-Shared connection to 172.16.101.91 closed.
-Connection to 172.16.101.91 closed by remote host.
+cisco@ansible-controller:~$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+R1 | SUCCESS => {
+    "changed": false,
+    "stdout": [
+        "Building configuration...\n\nCurrent configuration : 108 bytes\n!\ninterface Loopback101\n description test config by p4\n ip address 1.1.1.101 255.255.255.255\n shutdown\nend"
+    ],
+    "stdout_lines": [
+        [
+            "Building configuration...",
+            "",
+            "Current configuration : 108 bytes",
+            "!",
+            "interface Loopback101",
+            " description test config by p4",
+            " ip address 1.1.1.101 255.255.255.255",
+            " shutdown",
+            "end"
+        ]
+    ]
+}
 ```
 ---
 
 ## 2.5 XR config module
 ### Lab exercise
 - Use xr_config module to configure an access-list on a XR router.
-- Create a playbook, p5-xrconfig.yml, with the below contents.
+- Create a playbook, p5-xrconfig.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p5-xrconfig.yml
 ---
 - name: configure ACL test7 on all XR devices
   hosts: XR
@@ -768,16 +794,18 @@ Connection to 172.16.101.91 closed by remote host.
 ```
 
 - Predict the outcome of executing the above playbook
-- Check the ACL before configuring:
+- Check the ACL before configuring
 - Run the playbook
 - Check for the post-playbook config
 
 ```
-$ ansible XR -m raw -a "sho run ipv4 access-list"
+$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+
+$ ansible-playbook p5-xrconfig.yml --syntax-check
 
 $ ansible-playbook p5-xrconfig.yml
 
-$ ansible XR -m raw -a "sho run ipv4 access-list"
+$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
 ```
 
 ### Conclusion
@@ -786,45 +814,49 @@ $ ansible XR -m raw -a "sho run ipv4 access-list"
 
 ### Example output
 ```
-cisco@ansible-controller:~$ ansible XR -m raw -a "sho run ipv4 access-list"
-172.16.101.92 | SUCCESS | rc=0 >>
+cisco@ansible-controller:~$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+R2 | SUCCESS => {
+    "changed": false,
+    "stdout": [
+        "% No such configuration item(s)"
+    ],
+    "stdout_lines": [
+        [
+            "% No such configuration item(s)"
+        ]
+    ]
+}
 
+cisco@ansible-controller:~$ ansible-playbook p5-xrconfig.yml --syntax-check
 
-Mon May 28 16:45:40.825 UTC
-% No such configuration item(s)
-
-
-IMPORTANT:  READ CAREFULLY
-:
-Shared connection to 172.16.101.92 closed.
-Connection to 172.16.101.92 closed by remote host.
-
+playbook: p5-xrconfig.yml
 
 cisco@ansible-controller:~$ ansible-playbook p5-xrconfig.yml
 
-PLAY [configure ACL test7 on all XR devices] *********************************************************
+PLAY [configure ACL test7 on all XR devices] **********************************************************************************************************************
 
-TASK [configure acl test7] ***************************************************************************
-changed: [172.16.101.92]
+TASK [configure acl test7] ****************************************************************************************************************************************
+changed: [R2]
 
-PLAY RECAP *******************************************************************************************
-172.16.101.92              : ok=1    changed=1    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R2                         : ok=1    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$ ansible XR -m raw -a "sho run ipv4 access-list"
-172.16.101.92 | SUCCESS | rc=0 >>
-
-
-Mon May 28 16:45:54.404 UTC
-ipv4 access-list test7
- 1 remark configured by p7
- 10 permit ipv4 host 1.1.1.1 any
- 20 permit ipv4 host 2.2.2.2 any
- 30 permit ipv4 host 3.3.3.3 any
-!
-
-IMPORTANT:  READ CAREFULLY
-:
-Connection to 172.16.101.92 closed by remote host.
+cisco@ansible-controller:~$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+R2 | SUCCESS => {
+    "changed": false,
+    "stdout": [
+        "ipv4 access-list test7\n 10 permit ipv4 host 1.1.1.1 any\n 20 permit ipv4 host 2.2.2.2 any\n 30 permit ipv4 host 3.3.3.3 any\n!"
+    ],
+    "stdout_lines": [
+        [
+            "ipv4 access-list test7",
+            " 10 permit ipv4 host 1.1.1.1 any",
+            " 20 permit ipv4 host 2.2.2.2 any",
+            " 30 permit ipv4 host 3.3.3.3 any",
+            "!"
+        ]
+    ]
+}
 ```
 
 ---
@@ -835,9 +867,10 @@ Connection to 172.16.101.92 closed by remote host.
 
 ### Lab exercise
 - Create custom variables inside a playbook to store an interface name and call the variable to complete the show command execution.
-- Create a playbook, p6-vars.yml, with the below contents:
+- Create a playbook, p6-vars.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p6-vars.yml
 ---
 - name: get config of gig1 and gig2
   hosts: IOS
@@ -847,25 +880,25 @@ Connection to 172.16.101.92 closed by remote host.
     INTF2: GigabitEthernet2
 
   tasks:
-    - name: disable proxy-arp
+    - name: Show run interface Gig
       ios_command:
         commands:
           - sho run int {{INTF1}}
           - sho run int {{INTF2}}
 
-      register: PROX
+      register: INT_OUT
 
     - name: print stuff, style-1
       debug:
-        var: PROX
+        var: INT_OUT
 
     - name: print stuff, style-2
       debug:
-        var: PROX.stdout_lines[0]
+        var: INT_OUT.stdout_lines[0]
 
     - name: print stuff, style-2
       debug:
-        var: PROX.stdout_lines[1]
+        var: INT_OUT.stdout_lines[1]
 ```
 - Predict the outcome of executing the above playbook
 - Run the playbook
@@ -879,21 +912,12 @@ $ ansible-playbook p6-vars.yml
 
 ### Conclusion
 - In this section you created variables inside a playbook and recalled the variables to complete a task execution.
-- When multiple commands are there, "register" keeps track of each command output output. We used BLAH.stdout_lines[n] to print them out separately.
-- Do not distract yourself too much on print formatting, now. Stay focused on playbooks.
-- Review the section and discuss if you have any questions
-
-
-### Optional exercise
-> - Create a playbook to print messages, "This is <IOS router hostname>" and "This is <XR router hostname>".
-> - Use default variable, "inventory_hostname". The messages will look like: "This is R1" and "This is R2"
-> - Solution playbook (op6-vars.yml) is given in the Appendix section
-
+- When multiple commands are given to the ios_command module, the results of each command output are stored in individual \<variable\>.stdout_lines array items.  They can be recalled individually by referencing their order in the array.  Ex:  \<variable\>.stdout_lines[n]
+- Review the section and discuss if you have any questions.
 
 ### Reference
 > - This is a simple exercise on variables; recommend to read below pages for more advanced use cases.
 > - http://docs.ansible.com/ansible/latest/user_guide/playbooks_variables.html
-> - https://gist.github.com/andreicristianpetcu/b892338de279af9dac067891579cad7d
 
 ### Example output
 ```
@@ -902,30 +926,30 @@ cisco@ansible-controller:~$ ansible-playbook p6-vars.yml --syntax-check
 playbook: p6-vars.yml
 cisco@ansible-controller:~$ ansible-playbook p6-vars.yml
 
-PLAY [get config of gig1 and gig2] *******************************************************************
+PLAY [get config of gig1 and gig2] ********************************************************************************************************************************
 
-TASK [disable proxy-arp] *****************************************************************************
-ok: [172.16.101.91]
+TASK [Show run interface Gig] *************************************************************************************************************************************
+ok: [R1]
 
-TASK [print stuff] ***********************************************************************************
-ok: [172.16.101.91] => {
-    "BLAH": {
+TASK [print stuff, style-1] ***************************************************************************************************************************************
+ok: [R1] => {
+    "INT_OUT": {
         "changed": false,
         "failed": false,
         "stdout": [
-            "Building configuration...\n\nCurrent configuration : 188 bytes\n!\ninterface GigabitEthernet1\n description OOB Management\n vrf forwarding Mgmt-intf\n ip address 172.16.101.91 255.255.255.0\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend",
-            "Building configuration...\n\nCurrent configuration : 177 bytes\n!\ninterface GigabitEthernet2\n description Connected to XRV\n ip address 10.0.0.5 255.255.255.252\n ip ospf cost 1\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend"
+            "Building configuration...\n\nCurrent configuration : 189 bytes\n!\ninterface GigabitEthernet1\n description OOB Management\n vrf forwarding Mgmt-intf\n ip address 172.16.101.191 255.255.255.0\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend",
+            "Building configuration...\n\nCurrent configuration : 170 bytes\n!\ninterface GigabitEthernet2\n description to R2-XRv\n ip address 10.0.0.5 255.255.255.252\n ip ospf cost 1\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend"
         ],
         "stdout_lines": [
             [
                 "Building configuration...",
                 "",
-                "Current configuration : 188 bytes",
+                "Current configuration : 189 bytes",
                 "!",
                 "interface GigabitEthernet1",
                 " description OOB Management",
                 " vrf forwarding Mgmt-intf",
-                " ip address 172.16.101.91 255.255.255.0",
+                " ip address 172.16.101.191 255.255.255.0",
                 " negotiation auto",
                 " cdp enable",
                 " no mop enabled",
@@ -935,10 +959,10 @@ ok: [172.16.101.91] => {
             [
                 "Building configuration...",
                 "",
-                "Current configuration : 177 bytes",
+                "Current configuration : 170 bytes",
                 "!",
                 "interface GigabitEthernet2",
-                " description Connected to XRV",
+                " description to R2-XRv",
                 " ip address 10.0.0.5 255.255.255.252",
                 " ip ospf cost 1",
                 " negotiation auto",
@@ -951,8 +975,47 @@ ok: [172.16.101.91] => {
     }
 }
 
-PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+TASK [print stuff, style-2] ***************************************************************************************************************************************
+ok: [R1] => {
+    "INT_OUT.stdout_lines[0]": [
+        "Building configuration...",
+        "",
+        "Current configuration : 189 bytes",
+        "!",
+        "interface GigabitEthernet1",
+        " description OOB Management",
+        " vrf forwarding Mgmt-intf",
+        " ip address 172.16.101.191 255.255.255.0",
+        " negotiation auto",
+        " cdp enable",
+        " no mop enabled",
+        " no mop sysid",
+        "end"
+    ]
+}
+
+TASK [print stuff, style-2] ***************************************************************************************************************************************
+ok: [R1] => {
+    "INT_OUT.stdout_lines[1]": [
+        "Building configuration...",
+        "",
+        "Current configuration : 170 bytes",
+        "!",
+        "interface GigabitEthernet2",
+        " description to R2-XRv",
+        " ip address 10.0.0.5 255.255.255.252",
+        " ip ospf cost 1",
+        " negotiation auto",
+        " cdp enable",
+        " no mop enabled",
+        " no mop sysid",
+        "end"
+    ]
+}
+
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=4    changed=0    unreachable=0    failed=0    
+
 ```
 
 ---
@@ -962,9 +1025,10 @@ PLAY RECAP *********************************************************************
 
 ### Lab exercise
 - Utilize Ansible loops to simplify execution of multiple show commands.
-- Create a playbook, p7-loops.yml, with the below contents
+- Create a playbook, p7-loops.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p7-loops.yml
 ---
 - name: get config of gig1 and gig2 from IOS devices
   hosts: IOS
@@ -995,6 +1059,8 @@ $ ansible-playbook p7-loops.yml --syntax-check
 
 $ ansible-playbook p7-loops.yml -v
 ```
+- Note the Loop command outputs will print a list of variables set to null, these are all other variables/parameters available within this module.
+
 ### Conclusion
 - In this section you created a loop to iterate the execution of multiple show commands.
 - Review the section and discuss if you have any questions
@@ -1010,17 +1076,18 @@ $ ansible-playbook p7-loops.yml -v
 cisco@ansible-controller:~$ ansible-playbook p7-loops.yml --syntax-check
 
 playbook: p7-loops.yml
-cisco@ansible-controller:~$ ansible-playbook p7-loops.yml
+
+cisco@ansible-controller:~$ ansible-playbook p7-loops.yml {#reduced output}
 
 PLAY [get config of gig1 and gig2 from IOS devices] **************************************************
 
 TASK [get config of gig1 and gig2 and time] **********************************************************
-ok: [172.16.101.91] => (item=show run int gig1)
-ok: [172.16.101.91] => (item=show run int gig2)
-ok: [172.16.101.91] => (item=show clock)
+ok: [R1] => (item=show run int gig1)
+ok: [R1] => (item=show run int gig2)
+ok: [R1] => (item=show clock)
 
 TASK [print stuff] ***********************************************************************************
-ok: [172.16.101.91] => {
+ok: [R1] => {
     "P7_OUT": {
         "changed": false,
         "msg": "All items completed",
@@ -1030,7 +1097,7 @@ ok: [172.16.101.91] => {
                 },
                 "item": "show run int gig1",
                 "stdout": [
-                    "Building configuration...\n\nCurrent configuration : 188 bytes\n!\ninterface GigabitEthernet1\n description OOB Management\n vrf forwarding Mgmt-intf\n ip address 172.16.101.91 255.255.255.0\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend"
+                    "Building configuration...\n\nCurrent configuration : 188 bytes\n!\ninterface GigabitEthernet1\n description OOB Management\n vrf forwarding Mgmt-intf\n ip address 172.16.101.191 255.255.255.0\n negotiation auto\n cdp enable\n no mop enabled\n no mop sysid\nend"
                 ],
                 "stdout_lines": [
                     [
@@ -1041,7 +1108,7 @@ ok: [172.16.101.91] => {
                         "interface GigabitEthernet1",
                         " description OOB Management",
                         " vrf forwarding Mgmt-intf",
-                        " ip address 172.16.101.91 255.255.255.0",
+                        " ip address 172.16.101.191 255.255.255.0",
                         " negotiation auto",
                         " cdp enable",
                         " no mop enabled",
@@ -1082,11 +1149,11 @@ ok: [172.16.101.91] => {
                 },
                 "item": "show clock",
                 "stdout": [
-                    "*21:40:30.056 UTC Mon May 28 2018"
+                    "*02:21:31.102 UTC Tue Jan 8 2019"
                 ],
                 "stdout_lines": [
                     [
-                        "*21:40:30.056 UTC Mon May 28 2018"
+                        "*02:21:31.102 UTC Tue Jan 8 2019"
                     ]
                 ]
             }
@@ -1095,7 +1162,7 @@ ok: [172.16.101.91] => {
 }
 
 PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+R1              : ok=2    changed=0    unreachable=0    failed=0
 
 cisco@ansible-controller:~$
 ```
@@ -1109,9 +1176,10 @@ cisco@ansible-controller:~$
 
 ### Lab exercise
 - Collect route summary data by using appropriate command based on the router’s OS
-- Create a playbook, p8-conditionals.yml, with the below contents
+- Create a playbook, p8-conditionals.yml, with the below content, on your home directory.
 
 ```
+cisco@ansible-controller:~$ vi p8-conditionals.yml
 ---
 - name: get route summary from IOS and XR routers
   hosts: ALL
@@ -1123,24 +1191,26 @@ cisco@ansible-controller:~$
       register: SHVER
 
     - name: run "show ip route summ" on IOS routers
-      when: SHVER.stdout | join('') is search('IOS XE')
+      when: '"IOS XE" in SHVER.stdout'
       raw: show ip route summary
 
       register: IOSRT
 
     - debug: var=IOSRT.stdout_lines
+      when: IOSRT.stdout_lines is defined
 
     - name: run "show route summ" on XR routers
-      when: SHVER.stdout | join('') is search('IOS XR')
+      when: '"IOS XR" in SHVER.stdout'
       raw: show route summary
 
       register: XRRT
 
     - debug: var=XRRT.stdout_lines
+      when: XRRT.stdout_lines is defined
 ```
 
 - Predict the outcome of executing the above playbook
-- Run the playbook:
+- Run the playbook
 
 ```
 $ ansible-playbook p8-conditionals.yml --syntax-check
@@ -1150,14 +1220,14 @@ $ ansible-playbook p8-conditionals.yml -v
 
 ### Conclusion
 - In this section you created a conditional statement to use a show command based on the Router OS.
-- Review the section and discuss if you have any questions
+- Review the section and discuss if you have any questions.
 
 ### Optional exercise
 > - Create a playbook, which will:
 >   - Detect router OS
->   - If a router has IOS, print message, "'hostname' is a IOS router" and if a router has XR, print, "'hostname' is a XR router"
->   - Playbook need to find the router names dynamically from the invenotry file.
-> - Solution playbook, op8-conditionals.yml is included in the Appendix section.
+>   - If a router has IOS, print message, "\<hostname\> is a IOS router" and if a router has XR, print, "\<hostname\> is a XR router"
+>   - Playbook needs to find the router names dynamically from the inventory file.
+> - Solution playbook is included in the appendix section 4.3 (op28-conditionals.yml).
 
 
 ### Reference
@@ -1169,84 +1239,76 @@ $ ansible-playbook p8-conditionals.yml -v
 cisco@ansible-controller:~$ ansible-playbook p8-conditionals.yml --syntax-check
 
 playbook: p8-conditionals.yml
+
 cisco@ansible-controller:~$ ansible-playbook p8-conditionals.yml
 
-PLAY [get route summary from IOS and XR routers] *************************************************************************************************
+PLAY [get route summary from IOS and XR routers] ******************************************************************************************************************
 
-TASK [collect version info] **********************************************************************************************************************
+TASK [collect version info] ***************************************************************************************************************************************
 changed: [R1]
 changed: [R2]
 
-TASK [run "show ip route summ" on IOS routers] ***************************************************************************************************
+TASK [run "show ip route summ" on IOS routers] ********************************************************************************************************************
 skipping: [R2]
 changed: [R1]
 
-TASK [debug] *************************************************************************************************************************************
+TASK [debug] ******************************************************************************************************************************************************
+ok: [R2] => {
+    "IOSRT.stdout_lines": "VARIABLE IS NOT DEFINED!"
+}
 ok: [R1] => {
-    "IOSRTR.stdout_lines": [
+    "IOSRT.stdout_lines": [
         "",
         "IP routing table name is default (0x0)",
         "IP routing table maximum-paths is 32",
         "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
         "application     0           0           0           0           0",
-        "connected       0           4           0           384         1216",
+        "connected       0           3           0           288         912",
         "static          0           0           0           0           0",
-        "ospf 1          0           1           0           96          308",
-        "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
-        "  NSSA External-1: 0 NSSA External-2: 0",
-        "bgp 1           0           0           0           0           0",
-        "  External: 0 Internal: 0 Local: 0",
-        "internal        3                                               1432",
-        "Total           3           5           0           480         2956"
+        "internal        2                                               968",
+        "Total           2           3           0           288         1880"
     ]
 }
-ok: [R2] => {
-    "IOSRTR.stdout_lines": "VARIABLE IS NOT DEFINED!"
-}
 
-TASK [run "show route summ" on XR routers] *******************************************************************************************************
+TASK [run "show route summ" on XR routers] ************************************************************************************************************************
 skipping: [R1]
 changed: [R2]
 
-TASK [debug] *************************************************************************************************************************************
-ok: [R1] => {
-    "XRRTR.stdout_lines": "VARIABLE IS NOT DEFINED!"
-}
+TASK [debug] ******************************************************************************************************************************************************
 ok: [R2] => {
-    "XRRTR.stdout_lines": [
+    "XRRT.stdout_lines": [
         "",
         "",
-        "Mon Jun  4 03:09:34.788 UTC",
+        "Tue Jan  8 02:32:48.732 UTC",
         "Route Source                     Routes     Backup     Deleted     Memory(bytes)",
-        "local                            5          0          0           800          ",
-        "connected                        1          4          0           800          ",
+        "connected                        1          1          0           320          ",
+        "local                            2          0          0           320          ",
         "dagr                             0          0          0           0            ",
-        "ospf 1                           1          0          0           160          ",
-        "bgp 1                            0          0          0           0            ",
-        "Total                            7          4          0           1760         ",
+        "Total                            3          1          0           640          ",
         ""
     ]
 }
+ok: [R1] => {
+    "XRRT.stdout_lines": "VARIABLE IS NOT DEFINED!"
+}
 
-PLAY RECAP ***************************************************************************************************************************************
-R1                         : ok=4    changed=2    unreachable=0    failed=0
-R2                         : ok=4    changed=2    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=4    changed=2    unreachable=0    failed=0   
+R2                         : ok=4    changed=2    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
 ```
 
 ---
 
 ## 2.9 Importing playbooks
-- Ansible allows for one playbook to import and execute another playbook using the import_playbook module.
-- We will be calling (or importing) using import_playbook module.
+- Ansible allows for a playbook to import and execute another playbook using the import_playbook module.
+- You will be calling (or importing) playbooks using the import_playbook module.
 
 ### Lab exercise
 - Create a playbook, p9-import.yml, with the below contents
 
 ```
-cisco@ansible-controller:~$ cat p9-import.yml
-
+cisco@ansible-controller:~$ vi p9-import.yml
 ---
 - name: route summary from IOS routers
   import_playbook: p2-ioscmd.yml
@@ -1254,11 +1316,10 @@ cisco@ansible-controller:~$ cat p9-import.yml
 - name: route summary from XR routers
   import_playbook: p3-xrcmd.yml
 ```
+
 - Read the playbooks p2-ioscmd.yml and p3-xrcmd.yml
 - Predict the outcome of executing the playbook, p9-import.yml
 - Run the playbook
-
-
 
 ```
 $ cat p2-ioscmd.yml
@@ -1267,11 +1328,11 @@ $ cat p3-xrcmd.yml
 
 $ ansible-playbook p9-import.yml --syntax-check
 
-$ ansible-playbook p9-import.yml
+$ ansible-playbook p9-import.yml -vv
 ```
 
 ### Conclusion
-- Note that import_play is to be used at **play-level** and not at task-level
+- Note that import_playbook is to be used at **play-level** and not at task-level
 - In this section you created a playbook to import and execute two other playbooks, rather than recreating the same playbook content again.
 - Review the section and discuss if you have any questions.
 
@@ -1282,14 +1343,29 @@ $ ansible-playbook p9-import.yml
 ### Example output
 
 ```
-cisco@ansible-controller:~$ ansible-playbook p9-import.yml
+cisco@ansible-controller:~$ ansible-playbook p9-import.yml -vv
+ansible-playbook 2.7.5
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = [u'/home/cisco/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python2.7/dist-packages/ansible
+  executable location = /usr/bin/ansible-playbook
+  python version = 2.7.15rc1 (default, Nov 12 2018, 14:31:15) [GCC 7.3.0]
+Using /etc/ansible/ansible.cfg as config file
+/etc/ansible/hosts did not meet host_list requirements, check plugin documentation if this is unexpected
+/etc/ansible/hosts did not meet script requirements, check plugin documentation if this is unexpected
 
-PLAY [collect ip route summary from all IOS devices] *********************************************************************************************
+PLAYBOOK: p9-import.yml *******************************************************************************************************************************************
+2 plays in p9-import.yml
 
-TASK [execute route summary command] *************************************************************************************************************
-ok: [R1]
+PLAY [collect ip route summary from all IOS devices] **************************************************************************************************************
+META: ran handlers
 
-TASK [print output] ******************************************************************************************************************************
+TASK [execute route summary command] ******************************************************************************************************************************
+task path: /home/cisco/p2-ioscmd.yml:7
+ok: [R1] => {"changed": false, "stdout": ["IP routing table name is default (0x0)\nIP routing table maximum-paths is 32\nRoute Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)\napplication     0           0           0           0           0\nconnected       0           3           0           288         912\nstatic          0           0           0           0           0\ninternal        2                                               968\nTotal           2           3           0           288         1880"], "stdout_lines": [["IP routing table name is default (0x0)", "IP routing table maximum-paths is 32", "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)", "application     0           0           0           0           0", "connected       0           3           0           288         912", "static          0           0           0           0           0", "internal        2                                               968", "Total           2           3           0           288         1880"]]}
+
+TASK [print output] ***********************************************************************************************************************************************
+task path: /home/cisco/p2-ioscmd.yml:14
 ok: [R1] => {
     "P2_OUTPUT.stdout_lines": [
         [
@@ -1297,54 +1373,53 @@ ok: [R1] => {
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
-            "ospf 1          0           1           0           96          308",
-            "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
-            "  NSSA External-1: 0 NSSA External-2: 0",
-            "bgp 1           0           0           0           0           0",
-            "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               968",
+            "Total           2           3           0           288         1880"
         ]
     ]
 }
+META: ran handlers
+META: ran handlers
 
-PLAY [collect ip route summary from all XR devices] **********************************************************************************************
+PLAY [collect ip route summary from all XR devices] ***************************************************************************************************************
+META: ran handlers
 
-TASK [execute route summary command] *************************************************************************************************************
-ok: [R2]
+TASK [execute route summary command] ******************************************************************************************************************************
+task path: /home/cisco/p3-xrcmd.yml:7
+ok: [R2] => {"changed": false, "stdout": ["Route Source                     Routes     Backup     Deleted     Memory(bytes)\nconnected                        1          1          0           320          \nlocal                            2          0          0           320          \ndagr                             0          0          0           0            \nTotal                            3          1          0           640"], "stdout_lines": [["Route Source                     Routes     Backup     Deleted     Memory(bytes)", "connected                        1          1          0           320          ", "local                            2          0          0           320          ", "dagr                             0          0          0           0            ", "Total                            3          1          0           640"]]}
 
-TASK [print output] ******************************************************************************************************************************
+TASK [print output] ***********************************************************************************************************************************************
+task path: /home/cisco/p3-xrcmd.yml:14
 ok: [R2] => {
     "P3_OUTPUT.stdout_lines": [
         [
             "Route Source                     Routes     Backup     Deleted     Memory(bytes)",
-            "local                            5          0          0           800          ",
-            "connected                        1          4          0           800          ",
+            "connected                        1          1          0           320          ",
+            "local                            2          0          0           320          ",
             "dagr                             0          0          0           0            ",
-            "ospf 1                           1          0          0           160          ",
-            "bgp 1                            0          0          0           0            ",
-            "Total                            7          4          0           1760"
+            "Total                            3          1          0           640"
         ]
     ]
 }
+META: ran handlers
+META: ran handlers
 
-PLAY RECAP ***************************************************************************************************************************************
-R1                         : ok=2    changed=0    unreachable=0    failed=0
-R2                         : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP ********************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0   
+R2                         : ok=2    changed=0    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
 ```
 
 ---
 
 # 3. Automating common tasks
 - The following exercises will use Ansible to automate certain network operations tasks:
-  - Router configuration backup
-  - Device health monitoring
-  - Method of procedure
-  - Generate iBGP config using roles
+  - Router Configuration Backup
+  - Device Health Monitoring
+  - Method of Procedure Automation
+  - Generate iBGP Config using Roles
   - Generating bulk configuration
 
 ---
@@ -1354,7 +1429,7 @@ cisco@ansible-controller:~$
 
 ### Approach
 - Create a playbook to collect the running config and save it to file on the ansible controller.
-- Setup a cron job to execute the playbook once a day and automatically backup the router running-configs.
+- Setup a cron job to execute the playbook once a day and automatically backup the router's running-config.
 
 ### Lab exercise
 
@@ -1362,7 +1437,6 @@ cisco@ansible-controller:~$
 
 ```
 cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
-
 ---
 - name: Get Router Config from All Routers
   hosts: all
@@ -1377,7 +1451,7 @@ cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
 
 Note when using the raw module do not set the connection to local. The raw module simply takes the input argument and executes the command on the remote host.
 
-#### Step-2: Edit the previous play to add a new task which will perform a time lookup. Then add another task to save the output to a file.
+#### Step-2: Edit the previous play to add a new task which will perform a time lookup. Then add another task to save the output to a file using the copy module.
 
 Use the set_fact option to set a variable "time" equal to the current time value on the server.
 
@@ -1411,29 +1485,51 @@ $ ansible-playbook p31-runcfg-bkup.yml
 $ ls -l R*.txt
 ```
 
-#### Step-3: Setup a cron on the Ansible Controller to execute the playbook once a day.
+#### Step-3: Setup a cron job on the Ansible Controller to execute the playbook once a day.
 
- You can test the cronjob by setting the execution time to run a one or two mins from the current to verify the job gets executed without errors.
-
- Execute the "date" command to get the current time on the server.
+- Execute the "date" command to get the current time on the server.
 
 ```
-cisco@Ansible-Controller:~/project1$ date
-Sun Feb 25 23:51:49 UTC 2018
-cisco@Ansible-Controller:~/project1$
+cisco@ansible-controller:~$ date
+Tue Jan  8 23:27:59 UTC 2019
 
-cisco@Ansible-Controller:~/project1$ sudo vi /etc/crontab
+cisco@ansible-controller:~$ crontab -e
+no crontab for cisco - using an empty one
 
+Select an editor.  To change later, run 'select-editor'.
+  1. /bin/nano        <---- easiest
+  2. /usr/bin/vim.basic
+  3. /usr/bin/vim.tiny
+  4. /bin/ed
+
+Choose 1-4 [1]: 2
+```
+- Inside the VIM editor of the crontab schedule the playbook to be run 1 or 2 mins after the current server time.
+- Note: You must exit from "crontab -e" in order for the cron file to be installed.
+
+```
 #Run Ansible Playbook rtr-cfg-bkup everyday at 5:15 am UTC to backup router configs
 
-15 5 * * * cisco /usr/bin/ansible-playbook -i /etc/ansible/hosts  /home/cisco/p31-runcfg-bkup.yml
+15 5 * * * /usr/bin/ansible-playbook -i /etc/ansible/hosts  /home/cisco/p31-runcfg-bkup.yml
 
 ```
+- Check to see if the cron job successfully created the new backup files.
+
+$ ls -l R*.txt
+
 
 ### Conclusion
 - You applied two modules, raw and copy, to retrieve and save the router config.
 - You setup a cron job to automatically execute a playbook once a day.
 - Review the section and discuss if you have any questions.
+
+### Optional exercise
+
+> - Add the below requirements to the above config backup playbook:
+>    - Write the running config to startup config on IOS devices
+>    - Gather the Admin mode running config from XR devices and save it to a file
+> - Execute your playbook and verify if the results meet the requirements.
+> - Solution playbook files (op31-runcfg-bkup.yml) are given in the appendix section 4.4 for your reference.
 
 ### Reference
 
@@ -1466,22 +1562,28 @@ cisco@ansible-controller:~$ cat p31-runcfg-bkup.yml
 cisco@ansible-controller:~$ ansible-playbook p31-runcfg-bkup.yml --syntax-check
 
 playbook: p31-runcfg-bkup.yml
-
+cisco@ansible-controller:~$
+cisco@ansible-controller:~$
 cisco@ansible-controller:~$ ansible-playbook p31-runcfg-bkup.yml
 
-PLAY [backup all routers config] *********************************************************************
+PLAY [Get Router Config from All Routers] ***************************************************************************************************************
 
-TASK [collect config  from all routers] **************************************************************
+TASK [Collect Show run from all routers] ****************************************************************************************************************
 changed: [R1]
 changed: [R2]
 
-TASK [save output to a file] *************************************************************************
-changed: [R1]
-changed: [R2]
+TASK [set_fact] *****************************************************************************************************************************************
+ok: [R1]
+ok: [R2]
 
-PLAY RECAP *******************************************************************************************
-R1              : ok=2    changed=2    unreachable=0    failed=0
-R2             : ok=2    changed=2    unreachable=0    failed=0
+TASK [save output to a file] ****************************************************************************************************************************
+changed: [R2]
+changed: [R1]
+
+PLAY RECAP **********************************************************************************************************************************************
+R1                         : ok=3    changed=2    unreachable=0    failed=0   
+R2                         : ok=3    changed=2    unreachable=0    failed=0   
+
 
 cisco@ansible-controller:~$ ls -ltr R*
 
@@ -1495,7 +1597,7 @@ cisco@ansible-controller:~$ ls -ltr R*
 
 ### Objective
 
-- Create a playbook to collect critical data, process, and report issues.
+- Create a playbook to collect critical health data, process the data, and report issues.
 
 ### Approach
 
@@ -1507,10 +1609,11 @@ cisco@ansible-controller:~$ ls -ltr R*
 
 #### Step-1: Create a playbook, named, p32-xr-health-monitoring.yml
 - The first task will use the xr_command module to capture show command outputs from R2-XRv router.
-- The second task will use the copy module to write the captured data into a file on the server. The inventory_hostname variable used here is a global variable, which means current device (out of the devices referred in "hosts"), that the tasks are run. Output of inventory_hostname will be R2; the hostname of the router defined in the inventory file.
+- The second task will use the copy module to write the captured data into a file on the server. The inventory_hostname variable used here is a global variable defined in the inventory file, the output of inventory_hostname will be R2.
 - The tasks under the debug module use a conditional statements to check the captured data for abnormalities.
 
 ```
+cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
 ---
 - name: XR Router Health Monitoring
   hosts: XR
@@ -1521,6 +1624,9 @@ cisco@ansible-controller:~$ ls -ltr R*
     - name: Router Health Monitoring Commands
       iosxr_command:
         commands:
+          - "{{item}}"
+
+      with_items:
           - show platform
           - show redundancy
           - show proc cpu | ex "0%      0%       0%"
@@ -1528,47 +1634,70 @@ cisco@ansible-controller:~$ ls -ltr R*
           - show ipv4 vrf all int bri
           - show route sum
           - show ospf neighbor
-          - show mpls ldp neighbor | in "Id|Up"
+          - show mpls ldp neighbor | in "Id|Up|State"
           - show bgp all all sum | in "Address|^[0-9]+"
 
       register: iosxr_mon
 
-    - name: save output to a file
+    - name: Save output to a file
       copy:
-          content="\n\n ===show platform=== \n\n {{ iosxr_mon.stdout[0] }} \n\n ===show redundancy=== \n\n {{ iosxr_mon.stdout[1] }} \n\n ===show proc cpu=== \n\n {{ iosxr_mon.stdout[2] }} \n\n ===show memory summary=== \n\n {{ iosxr_mon.stdout[3] }} \n\n ===show ipv4 vrf all int bri=== \n\n {{ iosxr_mon.stdout[4] }} \n\n ===show route sum=== \n\n {{ iosxr_mon.stdout[5] }} \n\n ===show ospf nei=== \n\n {{ iosxr_mon.stdout[6] }} \n\n ===show mpls ldp neighbor=== \n\n {{ iosxr_mon.stdout[7] }} \n\n ===show bgp sum=== \n\n {{iosxr_mon.stdout[8] }}"
-           dest="./{{ inventory_hostname }}_health_check.txt"
+        content="\n\n ===show platform=== \n\n {{ iosxr_mon.results[0].stdout_lines }} \n\n ===show redundancy=== \n\n {{ iosxr_mon.results[1].stdout }} \n\n ===show proc cpu=== \n\n {{ iosxr_mon.results[2].stdout }} \n\n ===show memory summary=== \n\n {{ iosxr_mon.results[3].stdout }} \n\n ===show ipv4 vrf all int bri=== \n\n {{ iosxr_mon.results[4].stdout }} \n\n ===show route sum=== \n\n {{ iosxr_mon.results[5].stdout }} \n\n ===show ospf nei=== \n\n {{ iosxr_mon.results[6].stdout }} \n\n ===show mpls ldp neighbor=== \n\n {{ iosxr_mon.results[7].stdout }} \n\n ===show bgp sum=== \n\n {{iosxr_mon.results[8].stdout }}"
+        dest="./{{ inventory_hostname }}_health_check.txt"
 
-    - debug:
+    - name: Platform Hardware Check
+      debug:
         msg: " {{ inventory_hostname }} show_platform indicates card is down"
-      when: iosxr_mon.stdout[0] | join('') | search('Down')
+      when: '"Down" in iosxr_mon.results[0].stdout[0]'
 
-    - debug:
+    - name: Redundancy Check
+      debug:
         msg: " {{ inventory_hostname }} show_redundancy indicates card is not present"
-      when: iosxr_mon.stdout[1] | join('') | search('NSR not ready since Standby is not Present')
+      when: '"NSR not ready since Standby is not Present" in iosxr_mon.results[1].stdout[0]'
 
-    - debug:
-         msg: "{{ inventory_hostname }} CPU Utilization {{ iosxr_mon.stdout[2] }}"
+    - name: CPU Utilization Check
+      debug:
+         msg:
+           - "{{ inventory_hostname }} CPU Utilization "
+           - "{{ iosxr_mon.results[2].stdout_lines }}"
 
-    - debug:
-        msg: " {{ inventory_hostname }} Memory Available: {{ iosxr_mon.stdout[3] }}"
+    - name: Memory Utilization Check
+      debug:
+        msg:
+          - "{{ inventory_hostname }} Memory Utilization: "
+          - "{{ iosxr_mon.results[3].stdout_lines }}"
 
-    - debug:
+    - name: Down Interface Checks
+      debug:
         msg: " {{ inventory_hostname }} Interface is Down"
-      when: iosxr_mon.stdout[4] | join('') | search('Down')
+      when: '"Down" in iosxr_mon.results[4].stdout[0]'
 
-    - debug:
-        msg: " {{ inventory_hostname }} Route Summary: {{iosxr_mon.stdout[5]}}"
+    - name: Route Summary Check
+      debug:
+        msg: " {{ item }}"
+      with_items:
+        - " {{ inventory_hostname }} Route Summary: "
+        - "{{ iosxr_mon.results[5].stdout_lines[0] }}"
 
-    - debug:
-        msg: " {{ inventory_hostname }} OSPF Summary: {{iosxr_mon.stdout[6]}}"
-      when: iosxr_mon.stdout[6] | join('') | search('FULL')
+    - name: OSPF Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} OSPF Neighbor Summary: "
+          - " {{ iosxr_mon.results[6].stdout_lines }}"
+      when: '"OSPF" in iosxr_mon.results[6].stdout[0]'
 
-    - debug:
-        msg: " {{ inventory_hostname }} MPLS LDP Summary: {{iosxr_mon.stdout[7]}}"
+    - name: MPLS Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} MPLS LDP Summary: "
+          - " {{ iosxr_mon.results[7].stdout_lines }}"
+      when: '"Id" in iosxr_mon.results[7].stdout[0]'
 
-    - debug:
-        msg: " {{ inventory_hostname }} BGP Sessions Down: {{ iosxr_mon.stdout[8] }} "
-      when: iosxr_mon.stdout[8] | join('') | search('Active')
+    - name: BGP Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} BGP Sessions Down: "
+          - " {{ iosxr_mon.results[8].stdout_lines }} "
+      when: '"Active" in iosxr_mon.results[8].stdout[0]'
 ```
 
 #### Step-2: Run the playbook
@@ -1592,64 +1721,100 @@ $ ansible-playbook p32-xr-health-monitoring.yml
 cisco@ansible-controller:~$ ansible-playbook p32-xr-health-monitoring.yml --syntax-check
 
 playbook: p32-xr-health-monitoring.yml
+
 cisco@ansible-controller:~$ ansible-playbook p32-xr-health-monitoring.yml
 
-PLAY [XR Router Health Monitoring] ***************************************************************************************
+PLAY [XR Router Health Monitoring] *******************************************************************************************************************************************************************
 
-TASK [Router Health Monitoring Commands] *********************************************************************************
-ok: [R2]
+TASK [Router Health Monitoring Commands] *************************************************************************************************************************************************************
+ok: [R2] => (item=show platform)
+ok: [R2] => (item=show redundancy)
+ok: [R2] => (item=show proc cpu | ex "0%      0%       0%")
+ok: [R2] => (item=show memory sum location all | in "node|Pyhsical|available")
+ok: [R2] => (item=show ipv4 vrf all int bri)
+ok: [R2] => (item=show route sum)
+ok: [R2] => (item=show ospf neighbor)
+ok: [R2] => (item=show mpls ldp neighbor | in "Id|Up|State")
+ok: [R2] => (item=show bgp all all sum | in "Address|^[0-9]+")
 
-TASK [save output to a file] *********************************************************************************************
+TASK [Save output to a file] *************************************************************************************************************************************************************************
 changed: [R2]
 
-TASK [debug] *************************************************************************************************************
+TASK [Platform Hardware Check] ***********************************************************************************************************************************************************************
 skipping: [R2]
 
-TASK [debug] *************************************************************************************************************
+TASK [Redundancy Check] ******************************************************************************************************************************************************************************
 ok: [R2] => {
     "msg": " R2 show_redundancy indicates card is not present"
 }
 
-TASK [debug] *************************************************************************************************************
+TASK [CPU Utilization Check] *************************************************************************************************************************************************************************
 ok: [R2] => {
-    "msg": "R2 CPU Utilization CPU utilization for one minute: 0%; five minutes: 0%; fifteen minutes: 0%\n \nPID    1Min    5Min    15Min Process"
+    "msg": [
+        "R2 CPU Utilization ",
+        [
+            [
+                "CPU utilization for one minute: 1%; five minutes: 1%; fifteen minutes: 1%",
+                " ",
+                "PID    1Min    5Min    15Min Process"
+            ]
+        ]
+    ]
 }
 
-TASK [debug] *************************************************************************************************************
+TASK [Memory Utilization Check] **********************************************************************************************************************************************************************
 ok: [R2] => {
-    "msg": " R2 Memory Available: node:      node0_0_CPU0\n\fPhysical Memory: 3071M total (1300M available)\n Application Memory : 2868M (1300M available)"
+    "msg": [
+        "R2 Memory Utilization: ",
+        [
+            [
+                "node:      node0_0_CPU0",
+                "\fPhysical Memory: 3071M total (1443M available)",
+                " Application Memory : 2868M (1443M available)"
+            ]
+        ]
+    ]
 }
 
-TASK [debug] *************************************************************************************************************
+TASK [Down Interface Checks] *************************************************************************************************************************************************************************
 skipping: [R2]
 
-TASK [debug] *************************************************************************************************************
-ok: [R2] => {
-    "msg": " R2 Route Summary: Route Source                     Routes     Backup     Deleted     Memory(bytes)\nlocal                            5          0          0           800          \nconnected                        1          4          0           800          \ndagr                             0          0          0           0            \nospf 1                           1          0          0           160          \nbgp 1                            0          0          0           0            \nTotal                            7          4          0           1760"
+TASK [Route Summary Check] ***************************************************************************************************************************************************************************
+ok: [R2] => (item= R2 Route Summary: ) => {
+    "msg": "  R2 Route Summary: "
+}
+ok: [R2] => (item=Route Source                     Routes     Backup     Deleted     Memory(bytes)) => {
+    "msg": " Route Source                     Routes     Backup     Deleted     Memory(bytes)"
+}
+ok: [R2] => (item=connected                        1          1          0           320          ) => {
+    "msg": " connected                        1          1          0           320          "
+}
+ok: [R2] => (item=local                            2          0          0           320          ) => {
+    "msg": " local                            2          0          0           320          "
+}
+ok: [R2] => (item=dagr                             0          0          0           0            ) => {
+    "msg": " dagr                             0          0          0           0            "
+}
+ok: [R2] => (item=Total                            3          1          0           640) => {
+    "msg": " Total                            3          1          0           640"
 }
 
-TASK [debug] *************************************************************************************************************
-ok: [R2] => {
-    "msg": " R2 OSPF Summary: * Indicates MADJ interface\n# Indicates Neighbor awaiting BFD session up\n\nNeighbors for OSPF 1\n\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n192.168.0.1     1     FULL/BDR        00:00:36    10.0.0.5        GigabitEthernet0/0/0/0\n    Neighbor is up for 15:08:07\n\nTotal neighbor count: 1"
-}
-
-TASK [debug] *************************************************************************************************************
-ok: [R2] => {
-    "msg": " R2 MPLS LDP Summary: "
-}
-
-TASK [debug] *************************************************************************************************************
+TASK [OSPF Neighbor Check] ***************************************************************************************************************************************************************************
 skipping: [R2]
 
-PLAY RECAP ***************************************************************************************************************
-R2                         : ok=8    changed=1    unreachable=0    failed=0
+TASK [MPLS Neighbor Check] ***************************************************************************************************************************************************************************
+skipping: [R2]
 
-cisco@ansible-controller:~$
+TASK [BGP Neighbor Check] ****************************************************************************************************************************************************************************
+skipping: [R2]
+
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R2                         : ok=6    changed=1    unreachable=0    failed=0   
 ```
 
 ---
 
-## 3.3 Method of Procedure (MOP)
+## 3.3 Method of Procedure (MOP) Automation
 
 - MOP is a documented step-by-step sequence of tasks executed on network devices to achieve a planned objective. In this case, that objective is provisioning of OSPF.
 
@@ -1657,7 +1822,7 @@ cisco@ansible-controller:~$
 - Configure OSPF on both IOS and XR routers and enable OSPF on the loopback and GigE connected interface.
 - Do not configure if OSPF is already found in the router.
 
-### Approach
+### Steps Overview
 - Step-1 : Create playbook to capture ospf data and run it as a pre-check
 - Step-2: Configure OSPF on both routers
 - Step-3: Run capture playbook again as post-check
@@ -1673,6 +1838,7 @@ cisco@ansible-controller:~$
   - second one to capture and save OSPF data from XR routers.
 
 ```
+cisco@ansible-controller:~$ vi p33-ospf-capture.yml
 ---
 - name: OSPF captures from IOS routers
   hosts: IOS
@@ -1694,13 +1860,13 @@ cisco@ansible-controller:~$
     - name: Save IOS precheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ IOSPF.stdout[0] }} \n\n ===show ip ospf int bri=== \n\n {{ IOSPF.stdout[1] }} \n\n ===show ip ospf nei=== \n\n {{ IOSPF.stdout[2] }} \n\n ===show ip route ospf=== \n\n {{ IOSPF.stdout[3] \n\n }} "
-        dest="./p33-precheck-ios-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Precheck.txt"
       tags: precheck
 
     - name: Save IOS postcheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ IOSPF.stdout[0] }} \n\n ===show ip ospf int bri=== \n\n {{ IOSPF.stdout[1] }} \n\n ===show ip ospf nei=== \n\n {{ IOSPF.stdout[2] }} \n\n ===show ip route ospf=== \n\n {{ IOSPF.stdout[3] \n\n }} "
-        dest="./p33-postcheck-ios-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Postcheck.txt"
       tags: postcheck
 
 - name: OSPF captures from XR routers
@@ -1722,25 +1888,26 @@ cisco@ansible-controller:~$
     - name: Save XR precheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ XOSPF.stdout[0] }} \n\n ===show ospf int bri=== \n\n {{ XOSPF.stdout[1] }} \n\n ===show ospf nei=== \n\n {{ XOSPF.stdout[2] }} \n\n===show route ospf=== \n\n {{ XOSPF.stdout[3] \n\n }} "
-        dest="./p33-precheck-xr-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Precheck.txt"
       tags: precheck
 
     - name: Save XR postcheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ XOSPF.stdout[0] }} \n\n ===show ospf int bri=== \n\n {{ XOSPF.stdout[1] }} \n\n ===show ospf nei=== \n\n {{ XOSPF.stdout[2] }} \n\n===show route ospf=== \n\n {{ XOSPF.stdout[3] \n\n }} "
-        dest="./p33-postcheck-xr-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Postcheck.txt"
       tags: postcheck
 ```
 - Predict the outcome of this playbook.
-- Run the playbook. Note the **tags** option. We want the files to be saved as precheck since this capture is taken before configuring OSPF.
-- Ensure that the playbook runs successfully and verify the existence of the precheck files in the home dir, /home/cisco
+- Run the playbook. Note the **tags** option, that allows for section of the playbook to be called.
+- We want the files to be saved as precheck since this capture is taken before configuring OSPF.
+- Ensure that the playbook runs successfully and verify the existence of the precheck files in the home/cisco dir.
 
 ```
 $ ansible-playbook p33-ospf-capture.yml --syntax-check
 
 $ ansible-playbook p33-ospf-capture.yml --tags precheck
 
-$ ls -l p33-precheck*.txt
+$ ls -l R[1-2]-OSPF*.txt
 ```
 
 #### Step-2: Configure OSPF
@@ -1749,12 +1916,13 @@ $ ls -l p33-precheck*.txt
   - Play-2 will be to configure OSPF on XR Routers
 
 - One of the requirements as outlined in the objectives above is not to configure OSPF if it is already present.
-  - We achieved this using "meta" module. Meta module is a special module wich can directly influence the Ansible internal execution state.
+  - We achieved this using the "meta" module. Meta module is a special module which can directly influence the Ansible internal execution state.
   - Here, we search for the string, OSPF, and abort the play if it found.
 
 - Create playbook, p33-ospf-config.yml, with the below contents:
 
 ```
+cisco@ansible-controller:~$ vi p33-ospf-config.yml
 ---
 - name: configure ospf on IOS routers - play-1
   hosts: IOS
@@ -1769,7 +1937,7 @@ $ ls -l p33-precheck*.txt
       register: IOS_OSPF
 
     - meta: end_play
-      when: IOS_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in IOS_OSPF.stdout[0]'
 
     - name: configure IOS ospf
       ios_config:
@@ -1794,7 +1962,7 @@ $ ls -l p33-precheck*.txt
       register: XR_OSPF
 
     - meta: end_play
-      when: XR_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in XR_OSPF.stdout[0]'
 
     - name: configure XR ospf
       iosxr_config:
@@ -1849,13 +2017,15 @@ $ ansible-playbook p33-ospf-capture.yml --syntax-check
 
 $ ansible-playbook p33-ospf-capture.yml --tags postcheck
 
-$ ls -l p33-postcheck*.txt
+$ ls -l R[1-2]-OSPF*.txt
 ```
 
 #### Step-5: Create one playbook to run through the full MOP
-- Create a playbook, named p33-mop.yml, with the contents below:
+- Create a playbook, named p33-ospf-mop.yml, with the contents below:
+- Use the pause module to insert a delay in ansible execution to allow for ospf sessions to come up before conducting postchecks.
 
 ```
+cisco@ansible-controller:~$ vi p33-ospf-mop.yml
 ---
 - name: pre-config captures
   hosts: localhost
@@ -1871,18 +2041,21 @@ $ ls -l p33-postcheck*.txt
   hosts: localhost
 
   tasks:
+    - pause: seconds=30
+
     - name: run postcheck playbook
       command: ansible-playbook p33-ospf-capture.yml --tags postcheck
 ```
+
 - Predict the outcome of this playbook
 - Run the playbook:
 
 ```
-$ ansible-playbook p33-mop.yml --syntax-check
+$ ansible-playbook p33-ospf-mop.yml --syntax-check
 
-$ ansible-playbook p33-mop.yml
+$ ansible-playbook p33-ospf-mop.yml -v
 
-$ ls -ltr p33*.txt
+$ ls -l R[1-2]-OSPF*.txt
 ```
 
 ### Conclusion
@@ -1891,23 +2064,23 @@ $ ls -ltr p33*.txt
 
 ### Optional exercise
 
-> - Add the below requirements to the above MOP playbook:
->   - Insert a delay of 30 seconds before collecting post-config data
->   - Create a file with the differences between pre-config and post-config data
+> - Add the below requirements to the MOP playbook:
+>    - Create a new playbook that compares the differences between the pre-capture and post-capture files.
+>    - Hint: Use the command module to call the Linux diff utility.
 > - Execute your playbook and verify if the results meet the requirements.
-> - Solution playbook files (op-33-*.yml) are given in the appendix section for your reference.
+> - Solution playbook files (op33-diff.yml) are given in the appendix section 4.5 for your reference.
 
 
 ### Reference
 
-> copy module: http://docs.ansible.com/ansible/latest/modules/copy_module.html
-> meta module: http://docs.ansible.com/ansible/latest/modules/meta_module.html
-> pause: http://docs.ansible.com/ansible/latest/modules/pause_module.html
+> - copy module: http://docs.ansible.com/ansible/latest/modules/copy_module.html
+> - meta module: http://docs.ansible.com/ansible/latest/modules/meta_module.html
+> - pause module: http://docs.ansible.com/ansible/latest/modules/pause_module.html
+
 
 ### Example output
 ```
-
-cisco@ansible-controller:~$ cat p33-ospf-capture.yml
+cisco@ansible-controller:~$ vi p33-ospf-capture.yml
 ---
 - name: OSPF captures from IOS routers
   hosts: IOS
@@ -1929,13 +2102,13 @@ cisco@ansible-controller:~$ cat p33-ospf-capture.yml
     - name: Save IOS precheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ IOSPF.stdout[0] }} \n\n ===show ip ospf int bri=== \n\n {{ IOSPF.stdout[1] }} \n\n ===show ip ospf nei=== \n\n {{ IOSPF.stdout[2] }} \n\n ===show ip route ospf=== \n\n {{ IOSPF.stdout[3] \n\n }} "
-        dest="./p33-precheck-ios-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Precheck.txt"
       tags: precheck
 
     - name: Save IOS postcheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ IOSPF.stdout[0] }} \n\n ===show ip ospf int bri=== \n\n {{ IOSPF.stdout[1] }} \n\n ===show ip ospf nei=== \n\n {{ IOSPF.stdout[2] }} \n\n ===show ip route ospf=== \n\n {{ IOSPF.stdout[3] \n\n }} "
-        dest="./p33-postcheck-ios-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Postcheck.txt"
       tags: postcheck
 
 - name: OSPF captures from XR routers
@@ -1957,46 +2130,47 @@ cisco@ansible-controller:~$ cat p33-ospf-capture.yml
     - name: Save XR precheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ XOSPF.stdout[0] }} \n\n ===show ospf int bri=== \n\n {{ XOSPF.stdout[1] }} \n\n ===show ospf nei=== \n\n {{ XOSPF.stdout[2] }} \n\n===show route ospf=== \n\n {{ XOSPF.stdout[3] \n\n }} "
-        dest="./p33-precheck-xr-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Precheck.txt"
       tags: precheck
 
     - name: Save XR postcheck output to a file
       copy:
         content=" \n\n ===show run router ospf=== \n\n {{ XOSPF.stdout[0] }} \n\n ===show ospf int bri=== \n\n {{ XOSPF.stdout[1] }} \n\n ===show ospf nei=== \n\n {{ XOSPF.stdout[2] }} \n\n===show route ospf=== \n\n {{ XOSPF.stdout[3] \n\n }} "
-        dest="./p33-postcheck-xr-ospf.txt"
+        dest="./{{ inventory_hostname }}-OSPF-Postcheck.txt"
       tags: postcheck
+
 cisco@ansible-controller:~$ ansible-playbook p33-ospf-capture.yml --syntax-check
 
 playbook: p33-ospf-capture.yml
-cisco@ansible-controller:~$
-cisco@ansible-controller:~$
+
 cisco@ansible-controller:~$ ansible-playbook p33-ospf-capture.yml --tags precheck
 
-PLAY [OSPF captures from IOS routers] ************************************************************************************************************************************************
+PLAY [OSPF captures from IOS routers] ****************************************************************************************************************************************************************
 
-TASK [Collect IOS OSPF commands] *****************************************************************************************************************************************************
+TASK [Collect IOS OSPF commands] *********************************************************************************************************************************************************************
 ok: [R1]
 
-TASK [Save IOS precheck output to a file] ********************************************************************************************************************************************
+TASK [Save IOS precheck output to a file] ************************************************************************************************************************************************************
 changed: [R1]
 
-PLAY [OSPF captures from XR routers] *************************************************************************************************************************************************
+PLAY [OSPF captures from XR routers] *****************************************************************************************************************************************************************
 
-TASK [Collect XR OSPF commands] ******************************************************************************************************************************************************
+TASK [Collect XR OSPF commands] **********************************************************************************************************************************************************************
 ok: [R2]
 
-TASK [Save XR precheck output to a file] *********************************************************************************************************************************************
+TASK [Save XR precheck output to a file] *************************************************************************************************************************************************************
 changed: [R2]
 
-PLAY RECAP ***************************************************************************************************************************************************************************
-R1                         : ok=2    changed=1    unreachable=0    failed=0
-R2                         : ok=2    changed=1    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=1    unreachable=0    failed=0   
+R2                         : ok=2    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$ ls -l p33-precheck*.txt
--rw-rw-r-- 1 cisco cisco 1392 Jun  7 20:56 p33-precheck-ios-ospf.txt
--rw-rw-r-- 1 cisco cisco  963 Jun  7 20:56 p33-precheck-xr-ospf.txt
 
-cisco@ansible-controller:~$ cat p33-ospf-config.yml
+cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
+-rw-rw-r-- 1 cisco cisco 145 Jan  9 00:15 R1-OSPF-Precheck.txt
+-rw-rw-r-- 1 cisco cisco 178 Jan  9 00:16 R2-OSPF-Precheck.txt
+
+cisco@ansible-controller:~$ vi p33-ospf-config.yml
 ---
 - name: configure ospf on IOS routers - play-1
   hosts: IOS
@@ -2011,7 +2185,7 @@ cisco@ansible-controller:~$ cat p33-ospf-config.yml
       register: IOS_OSPF
 
     - meta: end_play
-      when: IOS_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in IOS_OSPF.stdout[0]'
 
     - name: configure IOS ospf
       ios_config:
@@ -2036,7 +2210,7 @@ cisco@ansible-controller:~$ cat p33-ospf-config.yml
       register: XR_OSPF
 
     - meta: end_play
-      when: XR_OSPF.stdout | join('') | search('router ospf')
+      when: '"router ospf" in XR_OSPF.stdout[0]'
 
     - name: configure XR ospf
       iosxr_config:
@@ -2051,53 +2225,69 @@ cisco@ansible-controller:~$ cat p33-ospf-config.yml
           - "exit"
 
 cisco@ansible-controller:~$ ansible IOS -m raw -a "sho run | sec ospf"
-R1 | SUCCESS | rc=0 >>
-Connection to 172.16.101.91 closed by remote host.
-Shared connection to 172.16.101.91 closed.
-
+R1 | CHANGED | rc=0 >>
+ ip ospf cost 1
+Shared connection to 172.16.101.191 closed.
 
 cisco@ansible-controller:~$ ansible XR -m raw -a "sho run router ospf"
-R2 | SUCCESS | rc=0 >>
+R2 | CHANGED | rc=0 >>
 
-Shared connection to 172.16.101.92 closed.
-Connection to 172.16.101.92 closed by remote host
-:
+Wed Jan  9 00:19:30.891 UTC
+% No such configuration item(s)
+
+Shared connection to 172.16.101.192 closed.
+
+cisco@ansible-controller:~$ ansible XR -m raw -a "show route ospf"
+R2 | CHANGED | rc=0 >>
+
+Wed Jan  9 00:19:41.770 UTC
+
+% No matching routes found
+
+Shared connection to 172.16.101.192 closed.
+
+cisco@ansible-controller:~$ ansible-playbook p33-ospf-config.yml --syntax-check
+
+playbook: p33-ospf-config.yml
+
 cisco@ansible-controller:~$ ansible-playbook p33-ospf-config.yml
 
-PLAY [configure ospf on IOS routers - play-1] ****************************************************************************************************************************************
+PLAY [configure ospf on IOS routers - play-1] ********************************************************************************************************************************************************
 
-TASK [pre-check for ospf config] *****************************************************************************************************************************************************
+TASK [pre-check for ospf config] *********************************************************************************************************************************************************************
 ok: [R1]
 
-TASK [configure IOS ospf] ************************************************************************************************************************************************************
+TASK [configure IOS ospf] ****************************************************************************************************************************************************************************
 changed: [R1]
 
-PLAY [configure ospf on XR routers - play-2] *****************************************************************************************************************************************
+PLAY [configure ospf on XR routers - play-2] *********************************************************************************************************************************************************
 
-TASK [pre-check for ospf config] *****************************************************************************************************************************************************
+TASK [pre-check for ospf config] *********************************************************************************************************************************************************************
 ok: [R2]
 
-TASK [configure XR ospf] *************************************************************************************************************************************************************
+TASK [configure XR ospf] *****************************************************************************************************************************************************************************
 changed: [R2]
 
-PLAY RECAP ***************************************************************************************************************************************************************************
-R1                         : ok=2    changed=1    unreachable=0    failed=0
-R2                         : ok=2    changed=1    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=1    unreachable=0    failed=0   
+R2                         : ok=2    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
-
-.
 cisco@ansible-controller:~$ ansible IOS -m raw -a "show ip ospf neigh"
-R1 | SUCCESS | rc=0 >>
-
+R1 | CHANGED | rc=0 >>
 
 Neighbor ID     Pri   State           Dead Time   Address         Interface
-192.168.0.2       1   FULL/DR         00:00:33    10.0.0.6        GigabitEthernet2Shared connection to 172.16.101.91 closed.
-Connection to 172.16.101.91 closed by remote host.
+192.168.0.2       1   2WAY/DROTHER    00:00:36    10.0.0.6        GigabitEthernet2Shared connection to 172.16.101.191 closed.
+
+
+cisco@ansible-controller:~$ ansible IOS -m raw -a "show ip ospf neigh"
+R1 | CHANGED | rc=0 >>
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+192.168.0.2       1   FULL/DR         00:00:32    10.0.0.6        GigabitEthernet2Shared connection to 172.16.101.191 closed.
 
 
 cisco@ansible-controller:~$ ansible IOS -m raw -a "show ip route ospf"
-R1 | SUCCESS | rc=0 >>
+R1 | CHANGED | rc=0 >>
 
 Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
        D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area
@@ -2112,15 +2302,13 @@ Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
 Gateway of last resort is not set
 
       192.168.0.0/32 is subnetted, 2 subnets
-O        192.168.0.2 [110/2] via 10.0.0.6, 00:01:09, GigabitEthernet2Shared connection to 172.16.101.91 closed.
-Connection to 172.16.101.91 closed by remote host.
+O        192.168.0.2 [110/2] via 10.0.0.6, 00:00:35, GigabitEthernet2Shared connection to 172.16.101.191 closed.
 
 
 cisco@ansible-controller:~$ ansible XR -m raw -a "show ospf neigh"
-R2 | SUCCESS | rc=0 >>
+R2 | CHANGED | rc=0 >>
 
-
-Thu Jun  7 23:17:09.508 UTC
+Wed Jan  9 00:22:24.789 UTC
 
 * Indicates MADJ interface
 # Indicates Neighbor awaiting BFD session up
@@ -2128,155 +2316,179 @@ Thu Jun  7 23:17:09.508 UTC
 Neighbors for OSPF 1
 
 Neighbor ID     Pri   State           Dead Time   Address         Interface
-192.168.0.1     1     FULL/BDR        00:00:33    10.0.0.5        GigabitEthernet0/0/0/0
-    Neighbor is up for 00:01:57
+192.168.0.1     1     FULL/BDR        00:00:30    10.0.0.5        GigabitEthernet0/0/0/0
+    Neighbor is up for 00:01:17
 
 Total neighbor count: 1
 
-
-
-IMPORTANT:  READ CAREFULLY
-Welcome to the Demo Version of Cisco IOS XRv (the "Software").
-:
-
-
-Connection to 172.16.101.92 closed by remote host.
-Shared connection to 172.16.101.92 closed.
+Shared connection to 172.16.101.192 closed.
 
 
 cisco@ansible-controller:~$ ansible XR -m raw -a "show route ospf"
-R2 | SUCCESS | rc=0 >>
+R2 | CHANGED | rc=0 >>
 
+Wed Jan  9 00:22:30.898 UTC
 
-Thu Jun  7 23:17:15.928 UTC
+O    192.168.0.1/32 [110/2] via 10.0.0.5, 00:00:49, GigabitEthernet0/0/0/0
 
-O    192.168.0.1/32 [110/2] via 10.0.0.5, 00:01:23, GigabitEthernet0/0/0/0
-
-
-
-IMPORTANT:  READ CAREFULLY
-Welcome to the Demo Version of Cisco IOS XRv (the "Software").
-:
-
-
-Shared connection to 172.16.101.92 closed.
-Connection to 172.16.101.92 closed by remote host.
-
+Shared connection to 172.16.101.192 closed.
 
 cisco@ansible-controller:~$ ansible-playbook p33-ospf-capture.yml --syntax-check
 
 playbook: p33-ospf-capture.yml
 cisco@ansible-controller:~$ ansible-playbook p33-ospf-capture.yml --tags postcheck
 
-PLAY [OSPF captures from IOS routers] ************************************************************************************************************************************************
+PLAY [OSPF captures from IOS routers] ****************************************************************************************************************************************************************
 
-TASK [Collect IOS OSPF commands] *****************************************************************************************************************************************************
+TASK [Collect IOS OSPF commands] *********************************************************************************************************************************************************************
 ok: [R1]
 
-TASK [Save IOS postcheck output to a file] *******************************************************************************************************************************************
+TASK [Save IOS postcheck output to a file] ***********************************************************************************************************************************************************
 changed: [R1]
 
-PLAY [OSPF captures from XR routers] *************************************************************************************************************************************************
+PLAY [OSPF captures from XR routers] *****************************************************************************************************************************************************************
 
-TASK [Collect XR OSPF commands] ******************************************************************************************************************************************************
+TASK [Collect XR OSPF commands] **********************************************************************************************************************************************************************
 ok: [R2]
 
-TASK [Save XR postcheck output to a file] ********************************************************************************************************************************************
+TASK [Save XR postcheck output to a file] ************************************************************************************************************************************************************
 changed: [R2]
 
-PLAY RECAP ***************************************************************************************************************************************************************************
-R1                         : ok=2    changed=1    unreachable=0    failed=0
-R2                         : ok=2    changed=1    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=1    unreachable=0    failed=0   
+R2                         : ok=2    changed=1    unreachable=0    failed=0  
 
-cisco@ansible-controller:~$ ls -l p33-postcheck*.txt
--rw-rw-r-- 1 cisco cisco 1395 Jun  7 23:15 p33-postcheck-ios-ospf.txt
--rw-rw-r-- 1 cisco cisco  969 Jun  7 23:15 p33-postcheck-xr-ospf.txt
-cisco@ansible-controller:~$
+cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
+-rw-rw-r-- 1 cisco cisco 1410 Jan  9 00:23 R1-OSPF-Postcheck.txt
+-rw-rw-r-- 1 cisco cisco  145 Jan  9 00:15 R1-OSPF-Precheck.txt
+-rw-rw-r-- 1 cisco cisco  969 Jan  9 00:23 R2-OSPF-Postcheck.txt
+-rw-rw-r-- 1 cisco cisco  178 Jan  9 00:16 R2-OSPF-Precheck.txt
 
-cisco@ansible-controller:~$ ansible-playbook p33-mop.yml
+cisco@ansible-controller:~$ ansible-playbook p33-ospf-mop.yml --syntax-check
 
-PLAY [pre-config captures] ***********************************************************************************************************************************************************
+playbook: p33-ospf-mop.yml
 
-TASK [run precheck playbook] *********************************************************************************************************************************************************
+cisco@ansible-controller:~$ ansible-playbook p33-ospf-mop.yml
+
+PLAY [pre-config captures] ***************************************************************************************************************************************************************************
+
+TASK [run precheck playbook] *************************************************************************************************************************************************************************
 changed: [localhost]
 
-PLAY [configure ospf on IOS routers - play-1] ****************************************************************************************************************************************
+PLAY [configure ospf on IOS routers - play-1] ********************************************************************************************************************************************************
 
-TASK [pre-check for ospf config] *****************************************************************************************************************************************************
+TASK [pre-check for ospf config] *********************************************************************************************************************************************************************
 ok: [R1]
 
-PLAY [configure ospf on XR routers - play-2] *****************************************************************************************************************************************
+PLAY [configure ospf on XR routers - play-2] *********************************************************************************************************************************************************
 
-TASK [pre-check for ospf config] *****************************************************************************************************************************************************
+TASK [pre-check for ospf config] *********************************************************************************************************************************************************************
 ok: [R2]
 
-PLAY [post-config captures] **********************************************************************************************************************************************************
+PLAY [post-config captures] **************************************************************************************************************************************************************************
 
-TASK [run postcheck playbook] ********************************************************************************************************************************************************
+TASK [pause] *****************************************************************************************************************************************************************************************
+Pausing for 30 seconds
+(ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
+ok: [localhost]
+
+TASK [run postcheck playbook] ************************************************************************************************************************************************************************
 changed: [localhost]
 
-PLAY RECAP ***************************************************************************************************************************************************************************
-R1                         : ok=1    changed=0    unreachable=0    failed=0
-R2                         : ok=1    changed=0    unreachable=0    failed=0
-localhost                  : ok=2    changed=2    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=1    changed=0    unreachable=0    failed=0   
+R2                         : ok=1    changed=0    unreachable=0    failed=0   
+localhost                  : ok=3    changed=2    unreachable=0    failed=0   
+
+cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
+-rw-rw-r-- 1 cisco cisco 1410 Jan  9 00:28 R1-OSPF-Postcheck.txt
+-rw-rw-r-- 1 cisco cisco 1410 Jan  9 00:27 R1-OSPF-Precheck.txt
+-rw-rw-r-- 1 cisco cisco  969 Jan  9 00:28 R2-OSPF-Postcheck.txt
+-rw-rw-r-- 1 cisco cisco  969 Jan  9 00:27 R2-OSPF-Precheck.txt
 
 ```
 
-## 3.4 Generate iBGP Config
+## 3.4 Generate Device Configuration
 
 - Network configuration and rollouts are critical part of daily network operations.
-- This exercise will simulate a network config generation via roles and rollout of configs to network elements through automation.
+- This exercise will simulate a network config generation using Ansible Roles and Jinj2 to develop config templates.
 
 ### Objectives
 
 - Create a playbook to generate configuration based on Roles directory structures.
 - You will gain an understanding of how Ansible Roles and Jinja2 Templates can be used to generate router configurations.
 
-### Approach
+### Steps Overview
 
 - Step-1: Manually create the roles directory structure for the 2 router types (IOS & XR).
-- Step-2: Create a playbook roles-bgp.yml to call the two roles (csr-bgp & xr-bgp) to generate the iBGP config and to upload the generated config to the routers.
+- Step-2: Create a playbook roles-bgp.yml to call the two roles (ios-bgp & xr-bgp) to generate the iBGP config and to upload the generated config to the routers.
 - Step-3: Create main.yml files under the tasks and vars folders to setup the tasks to be executed when the roles are called.
-- Step-4: Create the iBGP configuration template for csr and xr router using Jinja2 templating format.
+- Step-4: Create the iBGP configuration template for ios and xr router using Jinja2 templating format.
 - Step-5: Execute the playbook roles-bgp.yml to generate the iBGP config and apply it to both routers.
 
 ### Lab Exercise
 
-#### Step-1: Create two sub-folders by the name “csr-bgp”  and “xr-bgp” using mkdir command
+#### Step-1: Create two sub-folders by the name “ios-bgp”  and “xr-bgp” using mkdir command
 
 ```
-cisco@ansible-controller:~$ mkdir csr-bgp xr-bgp
+cisco@ansible-controller:~$ pwd
+/home/cisco
+
+cisco@ansible-controller:~$ mkdir ios-bgp xr-bgp
+```
+- Verify the directories were created.
+```
+cisco@ansible-controller:~$ ls *bgp
+ios-bgp:
+
+xr-bgp:
 ```
 
-#### Step-2: Create tasks, vars, and templates directories under both csr-bgp and xr-bgp folder.
+#### Step-2: Create tasks, vars, and templates directories under both ios-bgp and xr-bgp folder.
 
 ```
-cisco@ansible-controller:~$ mkdir csr-bgp/tasks csr-bgp/vars csr-bgp/templates
+cisco@ansible-controller:~$ mkdir ios-bgp/tasks ios-bgp/vars ios-bgp/templates
 
 cisco@ansible-controller:~$ mkdir xr-bgp/tasks xr-bgp/vars xr-bgp/templates
-
 ```
-#### Step-3: Create a playbook called roles-bgp.yml.
+- Verify the directory structure
+```
+cisco@ansible-controller:~$ tree ios-bgp
+ios-bgp
+├── tasks
+├── templates
+└── vars
 
+3 directories, 0 files
+
+cisco@ansible-controller:~$ tree xr-bgp
+xr-bgp
+├── tasks
+├── templates
+└── vars
+```
+
+#### Step-3: Create a playbook called roles-bgp.yml.
 - This playbook contains 3 plays:
   - First play will run on the localhost (ansible-controller) and call on the roles to generate IOS and XR iBGP configs.
   - The second and third plays are used to upload the BGP configs to the routers.
 
 ```
+cisco@ansible-controller:~$ vi roles-bgp.yml
 ---
 - name: Generate router bgp configuration files using Roles and Jinja2 Templates
   hosts: localhost
 
   roles:
    - xr-bgp
-   - csr-bgp
+   - ios-bgp
 
-- name: Task to upload config to CSR
+- name: Task to upload config to R1-IOS
   hosts: IOS
   gather_facts: false
   connection: local
   tasks:
-  - name: "Load iBGP configs for CSR1kv router using SRC option using IOS_CONFIG Module"
+  - name: "Load iBGP configs for R1 router using SRC option using IOS_CONFIG Module"
     ios_config:
       src: "/home/cisco/R1-CSR1K-BGP.txt"
 
@@ -2286,51 +2498,28 @@ cisco@ansible-controller:~$ mkdir xr-bgp/tasks xr-bgp/vars xr-bgp/templates
   hosts: XR
 
   tasks:
-  - name: "Load iBGP configs for xr router using SRC option of IOSXR_CONFIG Module "
+  - name: "Load iBGP configs for R2 router using SRC option of IOSXR_CONFIG Module "
     iosxr_config:
       src: "/home/cisco/R2-XRv-BGP.txt"
 
 ```
 
-#### Step-4: Create a main.yml file inside the csr-bgp/tasks folder.
-
+#### Step-4: Create a main.yml file inside the ios-bgp/tasks folder.
 - The main.yml file in the tasks sub-folder identifies the Jinja2 Template that contains the iBGP configuration template, specified under the template folder, for this role.
 
-- Note vi users do the following to create the file.
-
 ```
-cisco@ansible-controller:~$ vi csr-bgp/tasks/main.yml
-```
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-cisco@ansible-controller:~$ mv main.yml csr-bgp/tasks/main.yml
-```
-- Paste the following inside the tasks main.yml file.
-
-```
+cisco@ansible-controller:~$ vi ios-bgp/tasks/main.yml
 ---
-- name: Generate R1 CSR router iBGP config file
-  template: src=CSR-BGP.j2 dest=./{{item.hostname}}-BGP.txt
+- name: Generate R1 IOS router iBGP config file
+  template: src=IOS-BGP.j2 dest=./{{item.hostname}}-BGP.txt
   with_items: "{{router_list}}"
 ```
 
-#### Step-5: Create a main.yml file inside the csr-bgp/vars folder.
-
+#### Step-5: Create a main.yml file inside the ios-bgp/vars folder.
 - Vars file contains all the values for parameters given in the Jinj2 template file.
-- Note vi users do the following to create the file.
 
 ```
-cisco@ansible-controller:~$ vi csr-bgp/vars/main.yml
-```
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-cisco@ansible-controller:~$ mv main.yml csr-bgp/vars/main.yml
-```
-- Paste the following inside the vars main.yml file.
-
-```
+cisco@ansible-controller:~$ vi ios-bgp/vars/main.yml
 ---
 router_list:
   -  hostname: R1-CSR1K
@@ -2341,22 +2530,13 @@ router_list:
      RMT_ASN: 1
 ```
 
-#### Step-6: Create a CSR-BGP.j2 template file inside the csr-bgp/templates folder.
+#### Step-6: Create a IOS-BGP.j2 template file inside the ios-bgp/templates folder.
 
 - Note vi users do the following to create the file.
 
 ```
-cisco@ansible-controller:~$ vi csr-bgp/templates/CSR-BGP.j2
-```
-- Note ATOM users do the following once the file has been created on the home directory.
+cisco@ansible-controller:~$ vi ios-bgp/templates/IOS-BGP.j2
 
-```
-cisco@ansible-controller:~$ mv CSR-BGP.j2 csr-bgp/templates/CSR-BGP.j2
-```
--  Paste the following inside the templates CSR-BGP.j2 file.
-
-
-```
 router bgp {{item.LCL_ASN}}
  bgp router-id {{item.RID}}
  bgp log-neighbor-changes
@@ -2367,19 +2547,8 @@ router bgp {{item.LCL_ASN}}
 
 #### Step-7: Same steps will need to be repeated for the xr-bgp role. Create a main.yml file inside the xr-bgp/tasks folder.
 
-- Note vi users do the following to create the file.
-
 ```
 cisco@ansible-controller:~$ vi xr-bgp/tasks/main.yml
-```
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-cisco@ansible-controller:~$ mv main.yml xr-bgp/tasks/main.yml
-```
-- Paste the following inside the tasks main.yml file.
-
-```
 ---
 - name: Generate R2 XRV router iBGP config file
   template: src=XR-BGP.j2 dest=./{{item.hostname}}-BGP.txt
@@ -2388,19 +2557,9 @@ cisco@ansible-controller:~$ mv main.yml xr-bgp/tasks/main.yml
 
 #### Step-8: Create a main.yml file inside the xr-bgp/vars folder.
 
-- Note vi users do the following to create the file.
-
 ```
 cisco@ansible-controller:~$ vi xr-bgp/vars/main.yml
-```
-- Note ATOM users do the following once the file has been created on the home directory.
 
-```
-cisco@ansible-controller:~$ mv main.yml xr-bgp/vars/main.yml
-```
-- Paste the following inside the vars main.yml file.
-
-```
 router_list:
   -  hostname: R2-XRv
      profile: IOS-XR
@@ -2412,19 +2571,9 @@ router_list:
 
 #### Step-9: Create a XR-BGP.j2 file inside the xr-bgp/templates folder.
 
-- Note vi users do the following to create the file.
+```
+cisco@ansible-controller:~$ vi xr-bgp/templates/XR-BGP.j2
 
-```
-$ vi xr-bgp/templates/XR-BGP.j2
-```
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-$ mv XR-BGP.j2 xr-bgp/templates/XR-BGP.j2
-```
-- Paste the following inside the templates XR-BGP.j2 file.
-
-```
 router bgp {{item.LCL_ASN}}
  bgp router-id {{item.RID}}
  address-family ipv4 unicast
@@ -2439,46 +2588,53 @@ router bgp {{item.LCL_ASN}}
 ```
 
 #### Step-10: Run the tree command and validate that following files structure is created
+
 ```
-cisco@ansible-controller:~$ tree csr-bgp
-csr-bgp
+cisco@ansible-controller:~$ tree ios-bgp
+ios-bgp
 ├── tasks
 │   └── main.yml
 ├── templates
-│   └── CSR-BGP.J2
+│   └── IOS-BGP.j2
 └── vars
     └── main.yml
 
 3 directories, 3 files
-
 cisco@ansible-controller:~$ tree xr-bgp
 xr-bgp
 ├── tasks
 │   └── main.yml
 ├── templates
-│   └── XR-BGP.J2
+│   └── XR-BGP.j2
 └── vars
     └── main.yml
+
+3 directories, 3 files
 ```
 
 #### Step-11: Execute the roles-bgp.yml playbook.
 
 ```
-cisco@ansible-controller:~$ ansible-playbook roles-bgp.yml
+$ ansible-playbook roles-bgp.yml --syntax-check
+
+$ ansible-playbook roles-bgp.yml
 ```
 
 #### Step-12: After the playbook is run, there should be 2 files generated (R1-CSR1K-BGP.txt & R2-XRv-BGP.txt).
 
 ```
-cisco@ansible-controller:more R1-CSR1K-BGP.txt
+cisco@ansible-controller:~$ ls -l R[1-2]-*-BGP.txt
+-rw-rw-r-- 1 cisco cisco 148 Jan  9 00:59 R1-CSR1K-BGP.txt
+-rw-rw-r-- 1 cisco cisco 173 Jan  9 00:59 R2-XRv-BGP.txt
+
+cisco@ansible-controller:~$ more R1-CSR1K-BGP.txt
 router bgp 1
  bgp router-id 192.168.0.1
  bgp log-neighbor-changes
  neighbor 192.168.0.2 remote-as 1
  neighbor 192.168.0.2 update-source Loopback0
 !
-
-cisco@ansible-controller:more R2-XRv-BGP.txt
+cisco@ansible-controller:~$ more R2-XRv-BGP.txt
 router bgp 1
  bgp router-id 192.168.0.2
  address-family ipv4 unicast
@@ -2492,10 +2648,17 @@ router bgp 1
 !
 ```
 
-- Make sure iBGP was configure on both routers.
+#### Step-13: Make sure iBGP was configured on both routers.
 
 ```
 cisco@ansible-controller:~$ ansible all -m raw -a "show bgp sum"
+```
+
+- Try rerunning the Health Monitoring Playbook on R2 to check state of OSPF and BGP routing protocols.
+- Recall: BGP output will only be printed if BGP sessions are down.
+
+```
+cisco@ansible-controller:~$ ansible-playbook p32-xr-health-monitoring.yml
 ```
 
 ### Conclusion
@@ -2506,30 +2669,37 @@ cisco@ansible-controller:~$ ansible all -m raw -a "show bgp sum"
 
 ### Example output:
 ```
-cisco@ansible-controller:~/CLUS18-Lab$ ansible-playbook roles-bgp.yml
+cisco@ansible-controller:~$ ansible-playbook roles-bgp.yml --syntax-check
 
-PLAY [Generate router bgp configuration files using Roles and Jinja2 Templates] ******************************************************************
+playbook: roles-bgp.yml
+cisco@ansible-controller:~$ ansible-playbook roles-bgp.yml
 
-TASK [xr-bgp : Generate R2 XRV router iBGP config file] ******************************************************************************************
-ok: [localhost] => (item={u'profile': u'IOS-XR', u'LCL_ASN': 1, u'RMT_ASN': 1, u'hostname': u'R2-XRv', u'PEER_IP': u'192.168.0.1', u'RID': u'192.168.0.2'})
+PLAY [Generate router bgp configuration files using Roles and Jinja2 Templates] **********************************************************************************************************************
 
-TASK [csr-bgp : Generate R1 CSR router iBGP config file] *****************************************************************************************
-ok: [localhost] => (item={u'profile': u'IOS-XE', u'LCL_ASN': 1, u'RMT_ASN': 1, u'hostname': u'R1-CSR1K', u'PEER_IP': u'192.168.0.2', u'RID': u'192.168.0.1'})
+TASK [xr-bgp : Generate R2 XRV router iBGP config file] **********************************************************************************************************************************************
+changed: [localhost] => (item={u'profile': u'IOS-XR', u'LCL_ASN': 1, u'RMT_ASN': 1, u'RID': u'192.168.0.2', u'hostname': u'R2-XRv', u'PEER_IP': u'192.168.0.1'})
 
-PLAY [Task to upload config to CSR] **************************************************************************************************************
+TASK [ios-bgp : Generate R1 IOS router iBGP config file] *********************************************************************************************************************************************
+changed: [localhost] => (item={u'profile': u'IOS-XE', u'LCL_ASN': 1, u'RMT_ASN': 1, u'RID': u'192.168.0.1', u'hostname': u'R1-CSR1K', u'PEER_IP': u'192.168.0.2'})
 
-TASK [Load iBGP configs for CSR1kv router using SRC option using IOS_CONFIG Module] **************************************************************
-ok: [R1]
+PLAY [Task to upload config to R1-IOS] ******************************************************************************************************************************************************************
 
-PLAY [Task to upload config to R2-XRV] ***********************************************************************************************************
+TASK [Load iBGP configs for R1 router using SRC option using IOS_CONFIG Module] **********************************************************************************************************************
+changed: [R1]
 
-TASK [Load iBGP configs for xr router using SRC option of IOSXR_CONFIG Module] *******************************************************************
-ok: [R2]
+PLAY [Task to upload config to R2-XRV] ***************************************************************************************************************************************************************
 
-PLAY RECAP ***************************************************************************************************************************************
-R1                         : ok=1    changed=0    unreachable=0    failed=0
-R2                         : ok=1    changed=0    unreachable=0    failed=0
-localhost                  : ok=2    changed=0    unreachable=0    failed=0
+TASK [Load iBGP configs for R2 router using SRC option of IOSXR_CONFIG Module] ***********************************************************************************************************************
+changed: [R2]
+
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=1    changed=1    unreachable=0    failed=0   
+R2                         : ok=1    changed=1    unreachable=0    failed=0   
+localhost                  : ok=2    changed=2    unreachable=0    failed=0   
+
+cisco@ansible-controller:~$ ls -l R[1-2]-*-BGP.txt
+-rw-rw-r-- 1 cisco cisco 148 Jan  9 00:59 R1-CSR1K-BGP.txt
+-rw-rw-r-- 1 cisco cisco 173 Jan  9 00:59 R2-XRv-BGP.txt
 
 ```
 ---
@@ -2540,9 +2710,9 @@ localhost                  : ok=2    changed=0    unreachable=0    failed=0
 
 ### Objective
 
-- Build configurations for 2 different type of router OS – IOS and XR.
+- Build configurations for 2 different type of router OS: IOS and XR.
 
-### Approach
+### Steps Overview
 
 - Initialize the roles directory and file structure by using ansible-galaxy cli
 - Build the playbook, template and variables for bulk config generation
@@ -2554,16 +2724,20 @@ localhost                  : ok=2    changed=0    unreachable=0    failed=0
 - Note: Ansible-Galaxy command is built into Ansible and allows for an automated way to create the Roles directory structure.
 
 ```
+cisco@ansible-controller:~$ pwd
+/home/cisco
+
 cisco@ansible-controller:~$ ansible-galaxy init config-gen
 - config-gen was created successfully
 ```
 #### Step-2: Review the tree structure that has been created by galaxy.
 
-- For this lab, you will be using the templates, vars, and tasks sub-directories to generate a bulk configuration.
+- For this lab, you will be using the templates, vars, and tasks sub-directories to generate the bulk configuration.
 
 ```
 cisco@ansible-controller:~$ tree config-gen/
 config-gen/
+├── README.md
 ├── defaults
 │   └── main.yml
 ├── files
@@ -2571,7 +2745,6 @@ config-gen/
 │   └── main.yml
 ├── meta
 │   └── main.yml
-├── README.md
 ├── tasks
 │   └── main.yml
 ├── templates
@@ -2580,25 +2753,13 @@ config-gen/
 │   └── test.yml
 └── vars
     └── main.yml
-		8 directories, 8 files
-		cisco@ansible-controller:~$
+
+8 directories, 8 files
 ```
 #### Step-3: Edit the main.yml file under the config-gen/tasks sub-directory.
 
-- Note vi users do the following to create the file.
-
 ```
 $ vi config-gen/tasks/main.yml
-```
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-$ mv main.yml config-gen/tasks/main.yml
-```
-
-- Paste the following inside the tasks main.yml file.
-
-```
 ---
 - name: Generate the configuration for xr-routers
   template:
@@ -2607,13 +2768,12 @@ $ mv main.yml config-gen/tasks/main.yml
   with_items:
      - "{{ xr_hostnames }}"
 
-- name: Generate the configuration for iosxe-routers
+- name: Generate the configuration for ios-routers
   template:
      src=ios-config-template.j2
      dest=./{{item.hostname}}.txt
   with_items:
      - "{{ ios_hostnames }}"
-...
 # tasks file for config-gen
 ```
 
@@ -2621,21 +2781,9 @@ $ mv main.yml config-gen/tasks/main.yml
 
 - 4a. Create the following template “xr-config-template.j2” under the templates directory.
 
-  - Note vi users do the following to create the file.
-
 ```
-$ vi config-gen/templates/xr-config-template.j2
-```
+cisco@ansible-controller:~$ vi config-gen/templates/xr-config-template.j2
 
-  - Note ATOM users do the following once the file has been created on the home directory.
-
-```
-$ mv xr-config-template.j2 config-gen/templates/xr-config-template.j2
-```
-
-- Paste the following inside the templates xr-config-template.j2 file.
-
-```
 hostname {{item.hostname}}
 service timestamps log datetime msec
 service timestamps debug datetime msec
@@ -2694,15 +2842,6 @@ interface GigabitEthernet0/0/0/1
   cdp
   no shutdown
 !
-interface mgmteth0/0/CPU0/0
-  description OOB Management
-  ! Configured on launch
-  vrf Mgmt-intf
- ipv4 address 172.16.101.99 255.255.255.0
-  cdp
-  no shutdown
-!
-!
 router ospf 16509
   log adjacency changes
   router-id {{item.loopback0_ip}}
@@ -2725,21 +2864,8 @@ cost 1
 
 - 4b. Create the following template “ios-config-template.j2” under the templates directory.
 
-  - Note vi users do the following to create the file.
-
 ```
-$ vi config-gen/templates/ios-config-template.j2
-```
-
-  - Note ATOM users do the following once the file has been created on the home directory.
-
-```
-$ mv ios-config-template.j2 config-gen/templates/ios-config-template.j2
-```
-
-  - Paste the following inside the templates ios-config-template.j2 file.
-
-```
+cisco@ansible-controller:~$ vi config-gen/templates/ios-config-template.j2
 
 clock timezone {{item.timezone}} {{item.timezone_offset}}
 clock summer-time {{item.timezone_dst}} recurring
@@ -2869,18 +2995,9 @@ interface Loopback0
  description Loopback
  ip address {{item.loopback0_ip}} {{item.loopback0_mask}}
 !
-interface GigabitEthernet1
- description OOB Management
- vrf forwarding Mgmt-intf
- ip address {{item.Mgmt_ip}} {{item.Mgmt_mask}}
- negotiation auto
- cdp enable
- no mop enabled
- no mop sysid
-!
 interface GigabitEthernet2
  description to R2-XRv
- ip address {{item.gigaethernet2_ip}} {{item.gigaethernet2_mask}}
+ ip address {{item.gigaethernet1_ip}} {{item.gigaethernet1_mask}}
  ip ospf cost 1
  negotiation auto
  cdp enable
@@ -2929,25 +3046,11 @@ end
 
 #### Step-5: Define the variable needed to generate the config in the main.yml file under the config-gen/vars sub-directory.
 
-- Note vi users do the following to create the file.
-
 ```
-$ vi config-gen/vars/main.yml
-```
-
-- Note ATOM users do the following once the file has been created on the home directory.
-
-```
-$ mv main.yml config-gen/vars/main.yml
-```
-
-- Paste the following inside the vars main.yml file.
-
-```
+cisco@ansible-controller:~$ vi config-gen/vars/main.yml
 ---
 xr_hostnames:
-   - { hostname: xr-router-rtr1, timezone: EST, timezone_dst: EDT, timezone_offset: -5, loopback0_ip: 192.168.0.1, loopback0_mask: 255.255.255.255
-, gig0000_ip: 10.0.0.5, gig0000_mask: 255.255.255.0, gig0001_ip: 10.1.0.5 , gig0001_mask: 255.255.255.0,}
+   - { hostname: xr-router-rtr1, timezone: EST, timezone_dst: EDT, timezone_offset: -5, loopback0_ip: 192.168.0.1, loopback0_mask: 255.255.255.255, gig0000_ip: 10.0.0.5, gig0000_mask: 255.255.255.0, gig0001_ip: 10.1.0.5 , gig0001_mask: 255.255.255.0,}
 
 xr_interfaces:
   - GigabitEthernet0/0/0/0
@@ -2955,18 +3058,17 @@ xr_interfaces:
 
 
 ios_hostnames:
-   - { hostname: ios-router-rtr1, timezone: EST, timezone_dst: EDT, timezone_offset: -5, loopback0_ip: 192.168.0.2, loopback0_mask: 255.255.255.25
-5, Mgmt_ip: 172.16.101.98, Mgmt_mask: 255.255.255.0, gigaethernet2_ip: 10.0.0.6, gigaethernet2_mask: 255.255.255.0, ospf_network1: 192.168.0.2, os
-pf_network_mask1: 0.0.0.0, ospf_network2: 10.0.0.0, ospf_network_mask2: 0.0.0.255, ospf_network3: 10.1.0.0, ospf_network_mask3: 0.0.0.255, areaid:
- 0 }
-
-...
+   - { hostname: ios-router-rtr1, timezone: EST, timezone_dst: EDT, timezone_offset: -5, loopback0_ip: 192.168.0.2, loopback0_mask: 255.255.255.255, gigaethernet1_ip: 10.0.0.6, gigaethernet1_mask: 255.255.255.0, ospf_network1: 192.168.0.2, ospf_network_mask1: 0.0.0.0, ospf_network2: 10.0.0.0, ospf_network_mask2: 0.0.0.255, ospf_network3: 10.1.0.0, ospf_network_mask3: 0.0.0.255, areaid: 0 }
 # vars file for config-gen
 ```
 
 #### Step-6: Create a playbook config-gen.yml to invoke the role of Bulk config generation. The config-gen.yml playbook has to be in the same directory as the config-gen role.
 
 ```
+cisco@ansible-controller:~$ pwd
+/home/cisco
+
+cisco@ansible-controller:~$ vi config-gen.yml
 ---
   - name: Playbook to generate configuration based on role "config-gen"
     hosts: localhost
@@ -2983,11 +3085,17 @@ cisco@ansible-controller:~$ ansible-playbook config-gen.yml
 ```
 #### Step-8: Validate the files are created
 ```
-cisco@ansible-controller:~$ ls -ltr *BGP.txt
--rw-r--r-- 1 cisco cisco 168 Jun  5 02:40 R2-XRv-BGP.txt
--rw-r--r-- 1 cisco cisco 148 Jun  5 02:41 R1-CSR1K-BGP.txt
-cisco@ansible-controller:~$
+cisco@ansible-controller:~$ ls -l *rtr1*
+-rw-rw-r-- 1 cisco cisco 4066 Jan  9 02:03 ios-router-rtr1.txt
+-rw-rw-r-- 1 cisco cisco 1218 Jan  9 02:03 xr-router-rtr1.txt
 ```
+- View the contents of the generated config files.
+```
+cisco@ansible-controller:~$ more ios-router-rtr1.txt
+
+cisco@ansible-controller:~$ more xr-router-rtr1.txt
+```
+
 ### Conclusion
 
 - You can utilize the concept of roles - predetermined order of directories and files to automate generating bulk tasks.
@@ -2995,27 +3103,428 @@ cisco@ansible-controller:~$
 ### Example Output
 
 ```
+cisco@ansible-controller:~$ ansible-playbook config-gen.yml --syntax-check
 
-cisco@ansible-controller:~/CLUS18-Lab$ ansible-playbook config-gen.yml
+playbook: config-gen.yml
 
-PLAY [Playbook to generate configuration based on role "config-gen"] *****************************************************************************
+cisco@ansible-controller:~$ ansible-playbook config-gen.yml
 
-TASK [config-gen : Generate the configuration for xr-routers] ************************************************************************************
-ok: [localhost] => (item={u'timezone_dst': u'EDT', u'gig0000_mask': u'255.255.255.0', u'timezone_offset': -5, u'hostname': u'xr-router-rtr1', u'loopback0_ip': u'192.168.0.1', u'timezone': u'EST', u'gig0001_mask': u'255.255.255.0', u'gig0000_ip': u'10.0.0.5', u'gig0001_ip': u'10.1.0.5', u'loopback0_mask': u'255.255.255.255'})
+PLAY [Playbook to generate configuration based on role "config-gen"] *********************************************************************************************************************************
 
-TASK [config-gen : Generate the configuration for iosxe-routers] *********************************************************************************
-ok: [localhost] => (item={u'timezone_dst': u'EDT', u'areaid': 0, u'ospf_network3': u'10.1.0.0', u'Mgmt_ip': u'172.16.101.98', u'gigaethernet2_mask': u'255.255.255.0', u'ospf_network1': u'192.168.0.2', u'timezone_offset': -5, u'hostname': u'ios-router-rtr1', u'ospf_network_mask1': u'0.0.0.0', u'ospf_network_mask2': u'0.0.0.255', u'loopback0_ip': u'192.168.0.2', u'Mgmt_mask': u'255.255.255.0', u'timezone': u'EST', u'ospf_network_mask3': u'0.0.0.255', u'gigaethernet2_ip': u'10.0.0.6', u'ospf_network2': u'10.0.0.0', u'loopback0_mask': u'255.255.255.255'})
+TASK [config-gen : Generate the configuration for xr-routers] ****************************************************************************************************************************************
+changed: [localhost] => (item={u'timezone_dst': u'EDT', u'gig0000_mask': u'255.255.255.0', u'timezone_offset': -5, u'hostname': u'xr-router-rtr1', u'loopback0_ip': u'192.168.0.1', u'gig0001_mask': u'255.255.255.0', u'timezone': u'EST', u'gig0000_ip': u'10.0.0.5', u'gig0001_ip': u'10.1.0.5', u'loopback0_mask': u'255.255.255.255'})
 
-PLAY RECAP ***************************************************************************************************************************************
-localhost                  : ok=2    changed=0    unreachable=0    failed=0
+TASK [config-gen : Generate the configuration for iosxe-routers] *************************************************************************************************************************************
+changed: [localhost] => (item={u'timezone_dst': u'EDT', u'areaid': 0, u'ospf_network3': u'10.1.0.0', u'ospf_network1': u'192.168.0.2', u'timezone_offset': -5, u'hostname': u'ios-router-rtr1', u'ospf_network_mask1': u'0.0.0.0', u'ospf_network_mask2': u'0.0.0.255', u'gigaethernet1_mask': u'255.255.255.0', u'gigaethernet1_ip': u'10.0.0.6', u'ospf_network2': u'10.0.0.0', u'timezone': u'EST', u'ospf_network_mask3': u'0.0.0.255', u'loopback0_ip': u'192.168.0.2', u'loopback0_mask': u'255.255.255.255'})
+
+PLAY RECAP *******************************************************************************************************************************************************************************************
+localhost                  : ok=2    changed=2    unreachable=0    failed=0   
+
+cisco@ansible-controller:~$
 ```
+
+---
+
+## 3.6 TextFSM Module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+___
+## 3.7 Yogi Custom Module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ---
 # 4. Appendix
 
 
 ## 4.1 Ansible Vault
-- Ansible Vault is a feature of Ansible that allows you to keep sensitive data such as passwords or keys in encrypted files, rather than as plaintext in playbooks or roles.
+- Ansible Vault is a feature of Ansible that allows you to keep sensitive data such as passwords or keys in encrypted files, rather than as plaintext.
 - Ansible vault has many security features but this section will cover only the basics of encrypting and decrypting a file.
 
 ### Objective
@@ -3024,7 +3533,7 @@ localhost                  : ok=2    changed=0    unreachable=0    failed=0
 ### Lab exercise
 - Use Ansible vault to encrypt and decrypt the inventory file.
 
-#### Pre-check
+#### Step-1: Pre-check
 
 - Pay attention the owner and file privileges (`-rw-r--r--`).
 - Make sure the playbook runs without any errors
@@ -3036,49 +3545,63 @@ $ cat /etc/ansible/hosts
 
 $ ansible-playbook p2-ioscmd.yml
 ```
-#### Encrypt inventory file and execute a playbook
+#### Step-2: Encrypt inventory file and execute a playbook
 
-- Steps summary
-  - Encrypt the inventory file using `ansible-vault` command.
+- Encrypt the inventory file using `ansible-vault` command.
     - sudo password: `cisco`
     - New vault password: `cisco123`
-  - Read the encrypted file
-  - Playbook execution without vault-key will fail.
-  - Read the failure error message about inventory file
-  - Execute the playbook with vault-key
-  - supply sudo and vault passwords as prompted.
-  - The playbook should run fine now.
-
 ```
 $ ansible-vault --help
 
 $ sudo ansible-vault encrypt /etc/ansible/hosts
+```
 
+  - Read the encrypted file
+
+```
 $ sudo cat /etc/ansible/hosts
 
 $ sudo ansible-vault view /etc/ansible/hosts
+```
 
+- Playbook execution without vault-key will fail.
+- Read the failure error message about inventory file
+
+```
 $ sudo ansible-playbook p2-ioscmd.yml
+```
 
+- Execute the playbook with vault-key
+- Input sudo and vault passwords as prompted.
+
+```
 $ sudo ansible-playbook p2-ioscmd.yml --ask-vault-pass
 ```
-#### Decrypt and restore
 
-- Steps summary
-  - Pay attention the owner and file privileges. Notice that the file permissions are not changed back to the original values.
-  - Change the file permissions to the previous settings.
-  - Make sure that the file permissions are: `-rw-r--r--`
-  - Ensure the playbook runs successfully before proceeding to next section.
+#### Step-3: Decrypt and restore
+
+- Decrypt the inventory file using `ansible-vault` command.
+    - sudo password: `cisco`
+    - New vault password: `cisco123`
 
 ```
 $ sudo ansible-vault decrypt /etc/ansible/hosts
+```
+- Pay attention the owner and file privileges. Notice that the file permissions are not changed back to the original values.
+- Change the file permissions to the previous settings.
+- Make sure that the file permissions are: `-rw-r--r--`
 
+```
 $ ls -l /etc/ansible/hosts
 
 $ sudo chmod 644 /etc/ansible/hosts
 
 $ ls -l /etc/ansible/hosts
+```
 
+- Ensure the inventory file has been decrypted by view its content and executing a playbook.
+
+```
 $ cat /etc/ansible/hosts
 
 $ ansible-playbook p2-ioscmd.yml
@@ -3093,7 +3616,8 @@ $ ansible-playbook p2-ioscmd.yml
 
 ```
 cisco@ansible-controller:~$ ls -l /etc/ansible/hosts
--rw-r--r-- 1 root root 1333 May 31 15:03 /etc/ansible/hosts
+-rw-r--r-- 1 root root 1199 Jan  8 00:50 /etc/ansible/hosts
+cisco@ansible-controller:~$
 cisco@ansible-controller:~$ cat /etc/ansible/hosts
 # This is the default ansible 'hosts' file.
 #
@@ -3106,68 +3630,80 @@ cisco@ansible-controller:~$ cat /etc/ansible/hosts
 #   - A hostname/ip can be a member of multiple groups
 
 [IOS]
-172.16.101.91
+R1 ansible_host=172.16.101.191 ansible_user=cisco ansible_ssh_pass=cisco
 
 [XR]
-172.16.101.92
+R2 ansible_host=172.16.101.192 ansible_user=cisco ansible_ssh_pass=cisco
 
 [ALL:children]
 IOS
 XR
 
-[ALL:vars]
-ansible_user=cisco
-ansible_ssh_pass=cisco
-:
 cisco@ansible-controller:~$ ansible-playbook p2-ioscmd.yml
 
-PLAY [collect ip route summary from all IOS devices] *************************************************
+PLAY [collect ip route summary from all IOS devices] *************************************************************************************************************************************************
 
-TASK [execute route summary command] *****************************************************************
-ok: [172.16.101.91]
+TASK [execute route summary command] *****************************************************************************************************************************************************************
+ok: [R1]
 
-TASK [print output] **********************************************************************************
-ok: [172.16.101.91] => {
+TASK [print output] **********************************************************************************************************************************************************************************
+ok: [R1] => {
     "P2_OUTPUT.stdout_lines": [
         [
             "IP routing table name is default (0x0)",
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
             "ospf 1          0           1           0           96          308",
             "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
             "  NSSA External-1: 0 NSSA External-2: 0",
             "bgp 1           0           0           0           0           0",
             "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               1048",
+            "Total           2           4           0           384         2268"
         ]
     ]
 }
 
-PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
+
 cisco@ansible-controller:~$ ansible-vault --help
 Usage: ansible-vault [create|decrypt|edit|encrypt|encrypt_string|rekey|view] [options] [vaultfile.yml]
 
-:
+encryption/decryption utility for Ansible data files
+
+Options:
+  --ask-vault-pass      ask for vault password
+  -h, --help            show this help message and exit
+  --new-vault-id=NEW_VAULT_ID
+                        the new vault identity to use for rekey
+  --new-vault-password-file=NEW_VAULT_PASSWORD_FILE
+                        new vault password file for rekey
+  --vault-id=VAULT_IDS  the vault identity to use
+  --vault-password-file=VAULT_PASSWORD_FILES
+                        vault password file
+  -v, --verbose         verbose mode (-vvv for more, -vvvv to enable
+                        connection debugging)
+  --version             show program's version number and exit
+
+ See 'ansible-vault <command> --help' for more information on a specific
+command.
+
 cisco@ansible-controller:~$ sudo ansible-vault encrypt /etc/ansible/hosts
 [sudo] password for cisco:
 New Vault password:
 Confirm New Vault password:
 Encryption successful
+
 cisco@ansible-controller:~$ sudo cat /etc/ansible/hosts
-'$ANSIBLE_VAULT;1.1;AES256
-66366161326466633561633433343264646366646330633430313061663639333836386531313936
-3562333338303936633733396662613166323439393639390a336661333532646534373138363663
-30386630383365386639633461366332363939373465386132373930653235353466333032633663
-3262363565343539650a613264636664336339313532363938393766333130616364336133386531
-:
-cisco@ansible-controller:~$
+$ANSIBLE_VAULT;1.1;AES256
+38376662323536326239666333353931643032646533366635623434653736386461653133363439
+3630393135666536623030386561626138646161393030610a376432333762386138393833336634
+
 cisco@ansible-controller:~$ sudo ansible-vault view /etc/ansible/hosts
 Vault password:
 # This is the default ansible 'hosts' file.
@@ -3181,106 +3717,74 @@ Vault password:
 #   - A hostname/ip can be a member of multiple groups
 
 [IOS]
-172.16.101.91
+R1 ansible_host=172.16.101.191 ansible_user=cisco ansible_ssh_pass=cisco
 
 [XR]
-172.16.101.92
+R2 ansible_host=172.16.101.192 ansible_user=cisco ansible_ssh_pass=cisco
 
 [ALL:children]
 IOS
 XR
 
-[ALL:vars]
-ansible_user=cisco
-ansible_ssh_pass=cisco
-:
 cisco@ansible-controller:~$ sudo ansible-playbook p2-ioscmd.yml
-[sudo] password for cisco:
- [WARNING]:  * Failed to parse /etc/ansible/hosts with yaml plugin: Attempting to decrypt but no
-vault secrets found
+ [WARNING]:  * Failed to parse /etc/ansible/hosts with yaml plugin: Attempting to decrypt but no vault secrets found
 
- [WARNING]:  * Failed to parse /etc/ansible/hosts with ini plugin: Attempting to decrypt but no vault
-secrets found
+ [WARNING]:  * Failed to parse /etc/ansible/hosts with ini plugin: Attempting to decrypt but no vault secrets found
 
  [WARNING]: Unable to parse /etc/ansible/hosts as an inventory source
 
  [WARNING]: No inventory was parsed, only implicit localhost is available
 
- [WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit
-localhost does not match 'all'
+ [WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit localhost does not match 'all'
 
  [WARNING]: Could not match supplied host pattern, ignoring: IOS
 
 
-PLAY [collect ip route summary from all IOS devices] *************************************************
+PLAY [collect ip route summary from all IOS devices] *************************************************************************************************************************************************
 skipping: no hosts matched
 
-PLAY RECAP *******************************************************************************************
+PLAY RECAP *******************************************************************************************************************************************************************************************
 
-cisco@ansible-controller:~$
-cisco@ansible-controller:~$ sudo ansible-playbook p2-ioscmd.yml --ask-vault-pass
+cisco@ansible-controller:~$  sudo ansible-playbook p2-ioscmd.yml --ask-vault-pass
 Vault password:
 
-PLAY [collect ip route summary from all IOS devices] *************************************************
+PLAY [collect ip route summary from all IOS devices] *************************************************************************************************************************************************
 
-TASK [execute route summary command] *****************************************************************
-ok: [172.16.101.91]
+TASK [execute route summary command] *****************************************************************************************************************************************************************
+ok: [R1]
 
-TASK [print output] **********************************************************************************
-ok: [172.16.101.91] => {
+TASK [print output] **********************************************************************************************************************************************************************************
+ok: [R1] => {
     "P2_OUTPUT.stdout_lines": [
         [
             "IP routing table name is default (0x0)",
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
             "ospf 1          0           1           0           96          308",
             "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
             "  NSSA External-1: 0 NSSA External-2: 0",
             "bgp 1           0           0           0           0           0",
             "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               1048",
+            "Total           2           4           0           384         2268"
         ]
     ]
 }
 
-PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
-cisco@ansible-controller:~$ sudo ansible-playbook p2-ioscmd.yml
-[sudo] password for cisco:
- [WARNING]:  * Failed to parse /etc/ansible/hosts with yaml plugin: Attempting to decrypt but no
-vault secrets found
-
- [WARNING]:  * Failed to parse /etc/ansible/hosts with ini plugin: Attempting to decrypt but no vault
-secrets found
-
- [WARNING]: Unable to parse /etc/ansible/hosts as an inventory source
-
- [WARNING]: No inventory was parsed, only implicit localhost is available
-
- [WARNING]: provided hosts list is empty, only localhost is available. Note that the implicit
-localhost does not match 'all'
-
- [WARNING]: Could not match supplied host pattern, ignoring: IOS
-
-
-PLAY [collect ip route summary from all IOS devices] *************************************************
-skipping: no hosts matched
-
-PLAY RECAP *******************************************************************************************
-
-cisco@ansible-controller:~$
+cisco@ansible-controller:~$ sudo ansible-vault decrypt /etc/ansible/hosts
+Vault password:
+Decryption successful
 cisco@ansible-controller:~$ ls -l /etc/ansible/hosts
--rw------- 1 root root 1333 May 31 17:26 /etc/ansible/hosts
-cisco@ansible-controller:~$
+-rw------- 1 root root 1199 Jan  9 02:21 /etc/ansible/hosts
 cisco@ansible-controller:~$ sudo chmod 644 /etc/ansible/hosts
 cisco@ansible-controller:~$ ls -l /etc/ansible/hosts
--rw-r--r-- 1 root root 1333 May 31 17:26 /etc/ansible/hosts
+-rw-r--r-- 1 root root 1199 Jan  9 02:21 /etc/ansible/hosts
 cisco@ansible-controller:~$ cat /etc/ansible/hosts
 # This is the default ansible 'hosts' file.
 #
@@ -3293,70 +3797,64 @@ cisco@ansible-controller:~$ cat /etc/ansible/hosts
 #   - A hostname/ip can be a member of multiple groups
 
 [IOS]
-172.16.101.91
+R1 ansible_host=172.16.101.191 ansible_user=cisco ansible_ssh_pass=cisco
 
 [XR]
-172.16.101.92
+R2 ansible_host=172.16.101.192 ansible_user=cisco ansible_ssh_pass=cisco
 
 [ALL:children]
 IOS
 XR
 
-[ALL:vars]
-ansible_user=cisco
-ansible_ssh_pass=cisco
-:
+
 cisco@ansible-controller:~$ ansible-playbook p2-ioscmd.yml
 
+PLAY [collect ip route summary from all IOS devices] *************************************************************************************************************************************************
 
-PLAY [collect ip route summary from all IOS devices] *************************************************
+TASK [execute route summary command] *****************************************************************************************************************************************************************
+ok: [R1]
 
-TASK [execute route summary command] *****************************************************************
-ok: [172.16.101.91]
-
-TASK [print output] **********************************************************************************
-ok: [172.16.101.91] => {
+TASK [print output] **********************************************************************************************************************************************************************************
+ok: [R1] => {
     "P2_OUTPUT.stdout_lines": [
         [
             "IP routing table name is default (0x0)",
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
             "ospf 1          0           1           0           96          308",
             "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
             "  NSSA External-1: 0 NSSA External-2: 0",
             "bgp 1           0           0           0           0           0",
             "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               1048",
+            "Total           2           4           0           384         2268"
         ]
     ]
 }
 
-PLAY RECAP *******************************************************************************************
-172.16.101.91              : ok=2    changed=0    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
 ```
-
 
 ---
 
-## 4.2 Optional exercise op3-cmd.yml
+## 4.2 Optional exercise op23-cmd.yml
 
 ### Objective
-- Write a playbook, op3-cmd.yml, to meet the below requirements:
+- Write a playbook, op23-cmd.yml, to meet the below requirements:
   - Collect output of route summary from both IOS and XR routers
   - Use the modules, ios_command and iosxr_command
   - Write 2 plays within one playbook.
 
 ### Lab exercise
-- playbook op3-cmd.xml
-
+- Create a playbook called op23-cmd.xml to collect output from IOS and XR router.
 
 ```
+cisco@ansible-controller:~$ vi op23-cmd.yml
 ---
   - name: play-1:get route summary from IOS routers
     hosts: IOS
@@ -3393,14 +3891,17 @@ cisco@ansible-controller:~$
 
 ### Example output
 ```
-cisco@ansible-controller:~$ ansible-playbook op3-cmd.yml
+cisco@ansible-controller:~$ ansible-playbook op23-cmd.yml --syntax-check
 
-PLAY [play-1:get route summary from IOS routers] *******************************************************************
+playbook: op23-cmd.yml
+cisco@ansible-controller:~$ ansible-playbook op23-cmd.yml
 
-TASK [execute IOS route summary command] ***************************************************************************
+PLAY [play-1:get route summary from IOS routers] *****************************************************************************************************************************************************
+
+TASK [execute IOS route summary command] *************************************************************************************************************************************************************
 ok: [R1]
 
-TASK [print output] ************************************************************************************************
+TASK [print output] **********************************************************************************************************************************************************************************
 ok: [R1] => {
     "IOS_OUTPUT.stdout_lines": [
         [
@@ -3408,102 +3909,58 @@ ok: [R1] => {
             "IP routing table maximum-paths is 32",
             "Route Source    Networks    Subnets     Replicates  Overhead    Memory (bytes)",
             "application     0           0           0           0           0",
-            "connected       0           4           0           384         1216",
+            "connected       0           3           0           288         912",
             "static          0           0           0           0           0",
             "ospf 1          0           1           0           96          308",
             "  Intra-area: 1 Inter-area: 0 External-1: 0 External-2: 0",
             "  NSSA External-1: 0 NSSA External-2: 0",
             "bgp 1           0           0           0           0           0",
             "  External: 0 Internal: 0 Local: 0",
-            "internal        3                                               1432",
-            "Total           3           5           0           480         2956"
+            "internal        2                                               1048",
+            "Total           2           4           0           384         2268"
         ]
     ]
 }
 
-PLAY [play-2:get route summary from XR routers] ********************************************************************
+PLAY [play-2:get route summary from XR routers] ******************************************************************************************************************************************************
 
-TASK [execute XR route summary command] ****************************************************************************
+TASK [execute XR route summary command] **************************************************************************************************************************************************************
 ok: [R2]
 
-TASK [print output] ************************************************************************************************
+TASK [print output] **********************************************************************************************************************************************************************************
 ok: [R2] => {
     "XR_OUTPUT.stdout_lines": [
         [
             "Route Source                     Routes     Backup     Deleted     Memory(bytes)",
-            "local                            5          0          0           800          ",
-            "connected                        1          4          0           800          ",
+            "connected                        1          1          0           320          ",
+            "local                            2          0          0           320          ",
             "dagr                             0          0          0           0            ",
             "ospf 1                           1          0          0           160          ",
             "bgp 1                            0          0          0           0            ",
-            "Total                            7          4          0           1760"
+            "Total                            4          1          0           800"
         ]
     ]
 }
 
-PLAY RECAP *********************************************************************************************************
-R1                         : ok=2    changed=0    unreachable=0    failed=0
-R2                         : ok=2    changed=0    unreachable=0    failed=0
-
-```
-
----
-## 4.3 Optional exercise op6-vars.yml
-### Objective
-- Create a playbook to print messages, "This is <hostname IOS> " and "This is <hostname XR> ".
-- Use default variable, "inventory_hostname". The messages should look like: "This is R1" and "This is R2"
-
-### Lab exercise
-- playbook, op6-vars.yml
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=0    unreachable=0    failed=0   
+R2                         : ok=2    changed=0    unreachable=0    failed=0   
 
 ```
 ---
-- name: print hostnames of all devices
-  hosts: ALL
-  connection: local
-
-  tasks:
-    - name: print hostname
-      debug:
-        msg: "This is {{ inventory_hostname }}"
-```
-
-### Example output
-```
-cisco@ansible-controller:~$ ansible-playbook op6-vars.yml --syntax-check
-
-playbook: op6-vars.yml
-cisco@ansible-controller:~$ ansible-playbook op6-vars.yml
-
-PLAY [print hostnames of all devices] ******************************************************************************
-
-TASK [print hostname] **********************************************************************************************
-ok: [R1] => {
-    "msg": "This is R1"
-}
-ok: [R2] => {
-    "msg": "This is R2"
-}
-
-PLAY RECAP *********************************************************************************************************
-R1                         : ok=1    changed=0    unreachable=0    failed=0
-R2                         : ok=1    changed=0    unreachable=0    failed=0
-
-cisco@ansible-controller:~$
-```
----
-## 4.4 Optional exercise op8-conditionals.yml
+## 4.3 Optional exercise op28-conditionals.yml
 ### Objective
 - Create a playbook, which will:
   - Detect router OS
-  - If a router has IOS, print message, "'hostname' is a IOS router" and if a router has XR, print, "'hostname' is a XR router"
-  - Playbook need to find the router names dynamically from the inventory file.
+  - If a router has IOS, print message, "\<hostname\> is a IOS router" and if a router has XR, print, "\<hostname\> is a XR router"
+  - Playbook needs to find the router names dynamically from the inventory file.
 
 ### Lab exercise
 
-- playbook, op8-conditionals.yml
+- Create a playbook called op28-conditionals.yml to conditional check router os type.
 
 ```
+cisco@ansible-controller:~$ vi op28-conditionals.yml
 ---
 - name: print each host and its OS
   hosts: ALL
@@ -3517,84 +3974,173 @@ cisco@ansible-controller:~$
     - name: print IOS host
       debug:
         msg: "{{ inventory_hostname }} is an IOS Router."
-      when: OS.stdout | join('') | search('IOS XE')
+      when: '"IOS XE" in OS.stdout'
 
     - name: print XR host
       debug:
         msg: "{{ inventory_hostname }} is an XR Router."
-      when: OS.stdout | join('') | search('IOS XR')
+      when: '"IOS XR" in OS.stdout'
 ```
 
 ### Example output
 
 ```
-cisco@ansible-controller:~$ ansible-playbook op8-conditionals.yml --syntax-check
+cisco@ansible-controller:~$ ansible-playbook op28-conditionals.yml --syntax-check
 
 playbook: op8-conditionals.yml
-cisco@ansible-controller:~$ ansible-playbook op8-conditionals.yml
+cisco@ansible-controller:~$ ansible-playbook op28-conditionals.yml
 
-PLAY [print each host and its OS] **********************************************************************************
+PLAY [print each host and its OS] ********************************************************************************************************************************************************************
 
-TASK [collect OS] **************************************************************************************************
+TASK [collect OS] ************************************************************************************************************************************************************************************
 changed: [R1]
 changed: [R2]
 
-TASK [print IOS host] **********************************************************************************************
+TASK [print IOS host] ********************************************************************************************************************************************************************************
 skipping: [R2]
 ok: [R1] => {
     "msg": "R1 is an IOS Router."
 }
 
-TASK [print XR host] ***********************************************************************************************
+TASK [print XR host] *********************************************************************************************************************************************************************************
 skipping: [R1]
 ok: [R2] => {
     "msg": "R2 is an XR Router."
 }
 
-PLAY RECAP *********************************************************************************************************
-R1                         : ok=2    changed=1    unreachable=0    failed=0
-R2                         : ok=2    changed=1    unreachable=0    failed=0
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=2    changed=1    unreachable=0    failed=0   
+R2                         : ok=2    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$
 ```
-
 ---
-
-## 4.5 Optional exercise op33-mop.yml (MOP)
+## 4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)
 ### Objective
-- We have two additional requirements on top of the MOP playbook that we already did.
-  - Insert a delay of 30 seconds before collecting post-config data
-  - Create a file with the differences between pre-config and post-config data
-
-### Approach
-- For delay, "pause" module can be used.
-- For diff, we can command module with diff argument.
+- We have two additional requirements on top of the Config Backup playbook that we already did.
+  - Write the Running Config to Startup Config on IOS devices
+  - Gather the Admin mode Running config from XR devices and save it to a file.
 
 ### Lab exercise
-- Create playbook, op-33.yml, with the contents below:
+- Since these will be run on different subsets of nodes, new plays in the same playbook will be created
+  - For writing IOS configs, the "ios_command" module can be used.
+  - For gathering XR admin mode config, the “raw” and “copy” modules can be used.
+- Create playbook, op31-runcfg-bkup.yml, with the contents below:
 
 ```
+cisco@ansible-controller:~$ vi op31-runcfg-bkup.yml
 ---
-- name: pre-config captures - play-1
-  hosts: localhost
+- name: Get Router Config from All Routers
+  hosts: all
+  gather_facts: no
 
   tasks:
-    - name: run precheck playbook
-      command: ansible-playbook p33-ospf-capture.yml --tags precheck
+    - name: Collect Show run from all routers
+      raw: "show run"
 
-- name: configure OSPF on both routers - play-2
-  import_playbook: p33-ospf-config.yml
+      register: RUNCFG
 
-- name: post-config captures - play-3
-  hosts: localhost
+    - set_fact: time="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===show run=== \n {{ RUNCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_run_cfg_{{ time }}.txt"
+
+- name: Write IOS Running Config to Startup Config
+  hosts: IOS
+  gather_facts: no
+  connection: local
 
   tasks:
-    - pause: seconds=30
+    - name: Write IOS Config
+      ios_command:
+        authorize: yes
+        commands: write memory
 
-    - name: run postcheck playbook
-      command: ansible-playbook p33-ospf-capture.yml --tags postcheck
+- name: Get Admin Config from XR Routers
+  hosts: XR
+  gather_facts: no
 
-- name: Compare pre and post files and create a diff file - play-4
+  tasks:
+    - name: Collect Admin show run from XR routers
+      raw: "admin show run"
+
+      register: ADMINCFG
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===admin show run=== \n {{ ADMINCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_admin_run_cfg_{{ time }}.txt"
+```
+
+### Example output
+
+```
+cisco@ansible-controller:~$ ansible-playbook op31-runcfg-bkup.yml --syntax-check
+
+playbook: op31-runcfg-bkup.yml
+
+cisco@ansible-controller:~$ ansible-playbook op31-runcfg-bkup.yml
+
+PLAY [Get Router Config from All Routers] ************************************************************************************************************************************************************
+
+TASK [Collect Show run from all routers] *************************************************************************************************************************************************************
+changed: [R1]
+changed: [R2]
+
+TASK [set_fact] **************************************************************************************************************************************************************************************
+ok: [R1]
+ok: [R2]
+
+TASK [save output to a file] *************************************************************************************************************************************************************************
+changed: [R2]
+changed: [R1]
+
+PLAY [Write IOS Running Config to Startup Config] ****************************************************************************************************************************************************
+
+TASK [Write IOS Config] ******************************************************************************************************************************************************************************
+ok: [R1]
+
+PLAY [Get Admin Config from XR Routers] **************************************************************************************************************************************************************
+
+TASK [Collect Admin show run from XR routers] ********************************************************************************************************************************************************
+changed: [R2]
+
+TASK [save output to a file] *************************************************************************************************************************************************************************
+changed: [R2]
+
+PLAY RECAP *******************************************************************************************************************************************************************************************
+R1                         : ok=4    changed=2    unreachable=0    failed=0   
+R2                         : ok=5    changed=4    unreachable=0    failed=0   
+
+cisco@ansible-controller:~$ ls -ltr *run_cfg*
+-rw-rw-r-- 1 cisco cisco 1359 Jan  8 23:26 R2_run_cfg_2019-01-08-23-26.txt
+-rw-rw-r-- 1 cisco cisco 4622 Jan  8 23:26 R1_run_cfg_2019-01-08-23-26.txt
+-rw-rw-r-- 1 cisco cisco 1359 Jan  8 23:34 R2_run_cfg_2019-01-08-23-34.txt
+-rw-rw-r-- 1 cisco cisco 4622 Jan  8 23:34 R1_run_cfg_2019-01-08-23-34.txt
+-rw-rw-r-- 1 cisco cisco 1686 Jan  9 16:59 R2_run_cfg_2019-01-09-16-59.txt
+-rw-rw-r-- 1 cisco cisco 4919 Jan  9 16:59 R1_run_cfg_2019-01-09-16-59.txt
+-rw-rw-r-- 1 cisco cisco  214 Jan  9 16:59 R2_admin_run_cfg_2019-01-09-16-59.txt
+```
+
+---
+## 4.5 Optional exercise op33-mop.yml (MOP)
+
+### Objective
+- We have  additional requirement on top of the MOP playbook that we already did.
+  - Create a playbook that compares the differences between the pre-capture and post-capture files.
+  - Create a file with the differences between pre-config and post-config data
+
+### Lab exercise
+- Create playbook, op33-diff.yml, to compare the pre-capture and post-capture files.
+- For the compare operation, we can use command module to call the Linux diff utility.
+
+```
+cisco@ansible-controller:~$ vi op33-diff.yml
+---
+- name: Compare pre and post files and create a diff file
   hosts: localhost
   connection: local
 
@@ -3602,7 +4148,7 @@ cisco@ansible-controller:~$
     - set_fact: TIMESTAMP="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
 
     - name: diff pre and post IOS files
-      command: diff /home/cisco/p33-precheck-ios-ospf.txt /home/cisco/p33-postcheck-ios-ospf.txt
+      command: diff /home/cisco/R1-OSPF-Precheck.txt /home/cisco/R1-OSPF-Postcheck.txt
 
       register: IOS_DIFF
 
@@ -3614,7 +4160,7 @@ cisco@ansible-controller:~$
         dest: "/home/cisco/op33-ios_diff_{{ TIMESTAMP }}.txt"
 
     - name: diff pre and post XR files
-      command: diff /home/cisco/p33-precheck-xr-ospf.txt /home/cisco/p33-postcheck-xr-ospf.txt
+      command: diff /home/cisco/R2-OSPF-Precheck.txt /home/cisco/R2-OSPF-Postcheck.txt
 
       register: XR_DIFF
 
@@ -3630,66 +4176,40 @@ cisco@ansible-controller:~$
 ### Example output
 
 ```
-cisco@ansible-controller:~$ ansible-playbook op33-mop.yml --syntax-check
+cisco@ansible-controller:~$ ansible-playbook op33-diff.yml --syntax-check
 
-playbook: op33-mop.yml
-cisco@ansible-controller:~$ ansible-playbook op33-mop.yml
+playbook: op33-diff.yml
+cisco@ansible-controller:~$ ansible-playbook op33-diff.yml
 
-PLAY [pre-config captures, play-1] ***************************************************************************************
+PLAY [Compare pre and post files and create a diff file] *********************************************************************************************************************************************
 
-TASK [run precheck playbook] *********************************************************************************************
-changed: [localhost]
-
-PLAY [configure ospf on IOS routers - play-1] ****************************************************************************
-
-TASK [pre-check for ospf config] *****************************************************************************************
-ok: [R1]
-
-PLAY [configure ospf on XR routers - play-2] *****************************************************************************
-
-TASK [pre-check for ospf config] *****************************************************************************************
-ok: [R2]
-
-PLAY [post-config captures, play-3] **************************************************************************************
-
-TASK [pause] *************************************************************************************************************
-Pausing for 30 seconds
-(ctrl+C then 'C' = continue early, ctrl+C then 'A' = abort)
+TASK [set_fact] **************************************************************************************************************************************************************************************
 ok: [localhost]
 
-TASK [run postcheck playbook] ********************************************************************************************
+TASK [diff pre and post IOS files] *******************************************************************************************************************************************************************
 changed: [localhost]
 
-PLAY [Compare pre and post files and create a diff file, play-4] *********************************************************
-
-TASK [set_fact] **********************************************************************************************************
-ok: [localhost]
-
-TASK [diff pre and post IOS files] ***************************************************************************************
+TASK [create diff file with timestamp included in the name] ******************************************************************************************************************************************
 changed: [localhost]
 
-TASK [create diff file with timestamp included in the name] **************************************************************
+TASK [diff pre and post XR files] ********************************************************************************************************************************************************************
 changed: [localhost]
 
-TASK [diff pre and post XR files] ****************************************************************************************
+TASK [create diff file with timestamp included in the name] ******************************************************************************************************************************************
 changed: [localhost]
 
-TASK [create diff file with timestamp included in the name] **************************************************************
-changed: [localhost]
+PLAY RECAP *******************************************************************************************************************************************************************************************
+localhost                  : ok=5    changed=4    unreachable=0    failed=0   
 
-PLAY RECAP ***************************************************************************************************************
-R1                         : ok=1    changed=0    unreachable=0    failed=0
-R2                         : ok=1    changed=0    unreachable=0    failed=0
-localhost                  : ok=8    changed=6    unreachable=0    failed=0
-
-cisco@ansible-controller:~$ ls -ltr op33*.txt
--rw-rw-r-- 1 cisco cisco 393 Jun  8 00:46 op33-ios_diff_2018-06-08-00-46.txt
--rw-rw-r-- 1 cisco cisco 489 Jun  8 00:46 op33-xr_diff_2018-06-08-00-46.txt
 cisco@ansible-controller:~$
+
+cisco@ansible-controller:~$ ls -l op33*.txt
+-rw-rw-r-- 1 cisco cisco 393 Jan  9 16:08 op33-ios_diff_2019-01-09-16-08.txt
+-rw-rw-r-- 1 cisco cisco 489 Jan  9 16:08 op33-xr_diff_2019-01-09-16-08.txt
+
 ```
 
 ---
-
 ## 4.6 Ansible installation
 - Ansible control machine is on Linux based systems with Python 2 (versions 2.6 or higher) or Python 3 (versions 3.5 or higher).
 - Red Hat, Debian, CentOS, OS X (MAC OS), Ubuntu, BSDs etc. are supported. MS Windows OS is not supported.
@@ -3716,6 +4236,7 @@ $ sudo apt-get update
 
 $ sudo apt-get install ansible
 ```
+- Note: Some Ubuntu releases have Ansible packages in their default repositories.  These are usually old and outdated versions, so it is highly recommended to use the above instructions to get the up-to-date version.
 
 ---
 
@@ -3726,6 +4247,7 @@ $ sudo apt-get install ansible
 - Ansible installation: https://www.youtube.com/watch?v=NIEVaCBGOUc
 - Introduction to YAML: https://www.youtube.com/watch?v=o9pT9cWzbnI
 - Ansible - Playbooks for beginners: https://www.youtube.com/watch?v=Z01b9QZG0D0
+- Ansible Quick Reference Guide: https://gist.github.com/andreicristianpetcu/b892338de279af9dac067891579cad7d
 - Python Configuration generation: - Kirk Byers Blog – Network configuration using Ansbile
 - Ansible Up and Running – Lorin Hochstein
 
