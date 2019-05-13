@@ -1421,6 +1421,7 @@ R2                         : ok=2    changed=0    unreachable=0    failed=0
   - Method of Procedure Automation
   - Generate iBGP Config using Roles
   - Generating bulk configuration
+  - TextFSM
 
 ---
 ## 3.1 Router config backup
@@ -3127,7 +3128,290 @@ cisco@ansible-controller:~$
 
 ## 3.6 TextFSM Module
 
+---
+## 3.6 TextFSM Module
+### Objective
+- Create a playbook to generate structured command output from standard/generic command output.
 
+### Approach
+- This playbook uses an ansible module caled ntc_show which in turn uses a Python module called textfsm
+- Create a playbook to collect show command output and let the modules do the parsing and print a structured output
+
+
+### Lab exercise
+
+#### Step-1: Create an ansible playbook as shown below to print structured output from show vesion brief command
+
+```
+cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
+---
+
+- name: GET STRUCTURED DATA BACK FROM CLI DEVICES
+  hosts: PE1
+  connection: local
+  gather_facts: False
+  
+  tasks:
+
+    - name: GET DATA
+      ntc_show_command:
+        connection: ssh
+        platform: cisco_xr
+        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
+        use_templates: True 
+        command: show version brief
+        host: 172.16.122.201
+        username: cisco
+        password: cisco
+      register:  mydata
+    -
+      name: FULL show version output
+      debug: var=mydata
+    - 
+      name: PRINT Image file location
+      debug: msg="Image file location is {{ mydata.response[0].imgloc}}"
+    - 
+      name: PRINT  IOS-XR SW Version
+      debug: msg="IOS-XR SW Version is {{ mydata.response[0].version}}"
+    - 
+      name: PRINT DEVICE Uptime
+      debug: msg="Device Uptime is {{ mydata.response[0].uptime}}"
+
+
+
+Brief Explanation about the above playbook:
+
+When using any module other than a raw module, set the connection to local. Gathering off facts is disabled in this playbook.
+
+This playbook uses "ntc_show_command" ansible module which has been pre-loaded in the ansible controller.ntc_show_command module is part of larger suite of Ansible modules and for more information see the below git.
+
+https://github.com/networktocode/ntc-ansible
+
+For some additional information about ntc ansible module (specifically ntc_show_command) options, see the below URL to understand what are the available options, which options are mandatory and how to use/configure playbooks using them.
+
+Some important options that are used in this playbook are explained below to level set the attendees on these options. 
+
+https://ntc-docs.readthedocs.io/en/latest/ntc-ansible%20Modules%20(multi-vendor)/ntc_show_command_module.html
+
+-------------------------------------------------------------------------------------------
+|  Parameter  |  required   | default | options     |   Comments                          |
+-------------------------------------------------------------------------------------------
+| connection  | no           |  ssh   | ssh/offline | connect to device using netmiko     |
+|             |              |        |             | or read an offline file for testing |
+| platform    |
+| template_dir|
+|use_templates|
+| command     |
+
+
+A brief overview/explanation of TextFSM Template is covered uring the lecture explaining the structure/format and how to custom create a template.
+
+All needed templates have been copied to the configured template_directory.
+
+Specifically for this exercise, a template by the name "isco_xr_show_version_brief-v3.template" will be used. This template needs to be configured/activated in the index file of the TextFSM template index file. This file resides in the directory where all templates will be copied/installed (i.e ~/ntc-ansible/ntc-templates/templates/).
+
+There are four comma separated values/parts in each and every line of the index file. First component is the template name , second column/component signifies the hostname of device this template will be used (an asterisk indicates, all hosts), third component signifies for which platform/device type this template is ued and the last one shows the actual command this template is applicable for.
+
+Below example, shows that a template with name "cisco_xr_show_version_brief-v3.template" will be used for converting show version brief IOS-XR command against all hosts to a structured output as defined in the template.
+
+cisco@ansible-ctrlr:~$ more ~/ntc-ansible/ntc-templates/templates/index | grep brief-v3
+cisco_xr_show_version_brief-v3.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
+cisco@ansible-ctrlr:~$ 
+
+Looking further in the template "cisco_xr_show_version_brief-v3.template", we can see that three "values" will be gathered from the command show version brief using this template. Refer to the lecture on the structure of the template and how to build it.
+
+cisco@ansible-ctrlr:~$ more ~/ntc-ansible/ntc-templates/templates/cisco_xr_show_version_brief-v3.template 
+Value Version ((.*))
+Value UPTIME ((.*))
+Value IMGloc ((.*))
+
+Start
+  ^.+UTC
+  ^Cisco IOS XR Software, Version ${Version} 
+  ^Copyright\s\(c\).+
+  ^ROM: GRUB, Version(.*) 
+  ^.*uptime is ${UPTIME} 
+  ^System image file is ${IMGloc} -> Record
+cisco@ansible-ctrlr:~$ 
+
+
+
+#### Step-2: Manually connect to the router and get the "show version brief" CLI command output to identify the critical/essential information to be extracted using the TextFSM template.
+
+cisco@globster-psl:~$ ssh -l cisco 172.16.122.201
+password:<>
+
+RP/0/0/CPU0:XRV1#show version brief 
+Mon May 13 11:14:21.109 UTC
+
+Cisco IOS XR Software, Version 6.1.2[Default]
+Copyright (c) 2016 by Cisco Systems, Inc.
+
+ROM: GRUB, Version 1.99(0), DEV RELEASE
+
+XRV1 uptime is 3 weeks, 5 days, 19 hours, 30 minutes
+System image file is "bootflash:disk0/xrvr-os-mbi-6.1.2/mbixrvr-rp.vm"
+
+cisco IOS XRv Series (Pentium Celeron Stepping 3) processor with 8388095K bytes of memory.
+Pentium Celeron Stepping 3 processor at 2592MHz, Revision 2.174
+IOS XRv Chassis
+
+1 GigabitEthernet
+1 Management Ethernet
+97070k bytes of non-volatile configuration memory.
+866M bytes of hard disk.
+2321392k bytes of disk0: (Sector size 512 bytes).
+RP/0/0/CPU0:XRV1#
+
+#### Step-3: Run the playbook as shown in the example below.
+
+cisco@ansible-ctrlr:~/ansible$ ansible-playbook pe1-ntc-show-ver.yml 
+
+PLAY [GET STRUCTURED DATA BACK FROM CLI DEVICES] *************************************************************************************************************************
+
+TASK [GET DATA] **********************************************************************************************************************************************************
+ok: [PE1]
+
+TASK [FULL show version output] ******************************************************************************************************************************************
+ok: [PE1] => {
+    "mydata": {
+        "changed": false, 
+        "failed": false, 
+        "response": [
+            {
+                "imgloc": "\"bootflash:disk0/xrvr-os-mbi-6.1.2/mbixrvr-rp.vm\"", 
+                "uptime": "3 weeks, 5 days, 19 hours, 28 minutes", 
+                "version": "6.1.2[Default]"
+            }
+        ], 
+        "response_list": []
+    }
+}
+
+TASK [PRINT Image file location] *****************************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "Image file location is \"bootflash:disk0/xrvr-os-mbi-6.1.2/mbixrvr-rp.vm\""
+}
+
+TASK [PRINT  IOS-XR SW Version] ******************************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "IOS-XR SW Version is 6.1.2[Default]"
+}
+
+TASK [PRINT DEVICE Uptime] ***********************************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "Device Uptime is 3 weeks, 5 days, 19 hours, 28 minutes"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************
+PE1                        : ok=5    changed=0    unreachable=0    failed=0   
+
+cisco@ansible-ctrlr:~/ansible$ 
+
+
+```
+Second playbook to get structured command output for show ipv4 interface brief command:
+
+cisco@ansible-ctrlr:~/ansible$ more pe1-ntc-show-ipv4-int-bri.yml 
+---
+
+- name: GET STRUCTURED DATA BACK FROM CLI DEVICES
+  hosts: PE1
+  connection: local
+  gather_facts: False
+  
+  tasks:
+
+    - name: GET DATA
+      ntc_show_command:
+        connection: ssh
+        #platform: cisco_ios
+        platform: cisco_xr
+        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
+        #index_file: /home/cisco/ntc-ansible/ntc-templates/templates/index
+        #template_dir: /home/cisco/ntc/projects/ntc-ansible/ntc-templates/templates
+        use_templates: True 
+        command: show ipv4 interface brief 
+        host: 172.16.122.201
+        username: cisco
+        password: cisco
+      register:  mydata
+    -
+      name: FULL show interface brief command output
+      debug: var=mydata
+    - 
+      name: PRINT interface and state of the interface
+      debug: msg="Interface name is {{ mydata.response[0].intf }}, Interface state is {{ mydata.response[0].status }}, IPv4 address is {{ mydata.response[0].ipaddr }}, VR
+F Name is {{ mydata.response[0].vrfname }}"
+    - 
+      name: PRINT interface and state of the interface
+      debug: msg="Interface name is {{ mydata.response[1].intf }}, Interface state is {{ mydata.response[1].status }}, IPv4 address is {{ mydata.response[1].ipaddr }}, VR
+F Name is {{ mydata.response[1].vrfname }}"
+    - 
+      name: PRINT interface and state of the interface
+      debug: msg="Interface name is {{ mydata.response[2].intf }}, Interface state is {{ mydata.response[2].status }}, IPv4 address is {{ mydata.response[2].ipaddr }}, VR
+F Name is {{ mydata.response[2].vrfname }}"
+    - 
+  #    name: PRINT interface and state of the interface
+  #    debug: msg="Interface name is {{ mydata.response[3].interface }}, Interface state is {{ mydata.response[3].intf_state }}"
+cisco@ansible-ctrlr:~/ansible$ ansible-playbook pe1-ntc-show-ipv4-int-bri.yml 
+
+PLAY [GET STRUCTURED DATA BACK FROM CLI DEVICES] *************************************************************************************************************************
+
+TASK [GET DATA] **********************************************************************************************************************************************************
+ok: [PE1]
+
+TASK [FULL show interface brief command output] **************************************************************************************************************************
+ok: [PE1] => {
+    "mydata": {
+        "changed": false, 
+        "failed": false, 
+        "response": [
+            {
+                "intf": "Loopback0", 
+                "ipaddr": "4.4.4.4", 
+                "proto": "Up", 
+                "status": "Up", 
+                "vrfname": "default"
+            }, 
+            {
+                "intf": "MgmtEth0/0/CPU0/0", 
+                "ipaddr": "172.16.122.201", 
+                "proto": "Up", 
+                "status": "Up", 
+                "vrfname": "default"
+            }, 
+            {
+                "intf": "GigabitEthernet0/0/0/0", 
+                "ipaddr": "10.10.1.2", 
+                "proto": "Up", 
+                "status": "Up", 
+                "vrfname": "default"
+            }
+        ], 
+        "response_list": []
+    }
+}
+
+TASK [PRINT interface and state of the interface] ************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "Interface name is Loopback0, Interface state is Up, IPv4 address is 4.4.4.4, VRF Name is default"
+}
+
+TASK [PRINT interface and state of the interface] ************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "Interface name is MgmtEth0/0/CPU0/0, Interface state is Up, IPv4 address is 172.16.122.201, VRF Name is default"
+}
+
+TASK [PRINT interface and state of the interface] ************************************************************************************************************************
+ok: [PE1] => {
+    "msg": "Interface name is GigabitEthernet0/0/0/0, Interface state is Up, IPv4 address is 10.10.1.2, VRF Name is default"
+}
+
+PLAY RECAP ***************************************************************************************************************************************************************
+PE1                        : ok=5    changed=0    unreachable=0    failed=0   
+
+cisco@ansible-ctrlr:~/ansible$
 
 
 
