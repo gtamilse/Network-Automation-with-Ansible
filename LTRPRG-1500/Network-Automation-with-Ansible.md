@@ -118,7 +118,7 @@ retry_files_enabled = False
 [diff]
 ```
 ### Reference
-> This is for later use. Skip for now. http://docs.ansible.com/ansible/latest/reference_appendices/config.html#ansible-configuration-settings
+> Reference File to Ansible configuration setting: http://docs.ansible.com/ansible/latest/reference_appendices/config.html#ansible-configuration-settings
 > - Changes can be made and used in a configuration file which will be searched for in the following order:
 >   - ANSIBLE_CONFIG (environment variable if set)
 >   - ./ansible.cfg (in the current directory)
@@ -133,6 +133,10 @@ retry_files_enabled = False
 - Create two device groups: IOS and XR
 - Create one explicit parent group: ALL
 - Assign the following variables to the devices: ansible_user=cisco ansible_ssh_pass=cisco
+- Assign the network os variable for R1 as ios and R2 as iosxr. 
+  - This is required for the network-cli connection type that is used for networking applicances.
+  - Network-cli connection type provides a connection to remote network devices over SSH and implements a CLI shell.
+  - https://docs.ansible.com/ansible/latest/plugins/connection/network_cli.html
 - Find out your IOS and XR router mgmt IP addresses from the pod assignment sheet. Plug them in the file below.
 - Edit the hosts file
   - Ubuntu inbuilt editors: vi, vim, or nano
@@ -147,10 +151,10 @@ sudo vi /etc/ansible/hosts
 cisco@ansible-controller:~$ sudo vi /etc/ansible/hosts
 
 [IOS]
-R1 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
+R1 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=ios
 
 [XR]
-R2 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
+R2 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=iosxr
 
 [ALL:children]
 IOS
@@ -198,7 +202,7 @@ XR
 ```
 ### Reference
 
-> - This snippet is for future reference.  http://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html
+> - Reference File to Ansible Inventory settings:  http://docs.ansible.com/ansible/latest/user_guide/intro_inventory.html
 > - Ansible can support multiple inventory files.
 
 ---
@@ -206,6 +210,7 @@ XR
 ## 1.3 Ansible modules
 - Ansible ships with several modules.
 - Try the below commands for a **quick review**
+- Exit out of the commands by typing the letter q if the prompt shows colon : at the bottom.
 
 ```
 $ ansible-doc --help
@@ -279,36 +284,34 @@ cisco@ansible-controller:~$
 ```
 ### Reference
 
-> For future research, check the ansible-docs page to find details on available modules.
+> Check the ansible-docs page to find details on available modules.
 > - http://docs.ansible.com/ansible/latest/modules/modules_by_category.html
 
 ---
 
 ## 1.4 Ad-hoc commands
-- Let's use a few modules in this section: `raw`, `ios_command`, and `iosxr_command`
+- Let's use a the following modules in this section: `raw`, `ios_command`, and `iosxr_command`
 - Syntax: `ansible <devices> -m <module> -a <command>`
-	- devices must exist in the inventory file
+	- Note the devices must exist in the inventory file
 - Execute the below ad-hoc commands (from your home directory, /home/cisco)
 
 ```
 $ ansible IOS -m raw -a "show ip int brief"
 $ ansible ALL -m raw -a "show clock"
-$ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
-$ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
+$ ansible IOS --connection network_cli -m ios_command -a "commands='show ip route summ'"
+$ ansible XR --connection network_cli -m iosxr_command -a "commands='show route summ'"
 ```
 - Raw is a barebones module that simply executes a command via an SSH connection and returns the resulting text.
-- The ios_command module provides additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (ex: failed and changed statuses).
-- Note: ios_command and iosxr_command require the "--connection local" flag.  Networking modules do not use the default connection types (SSH) because most network hosts run limited execution environments that do not provide native Python.  Ansible modules using SSH connection type rely on Python scripts to be transferred and executed on the target node, whereas network modules are executed on the Ansible host (locally) and use other connection providers to interact with the target system.
+- The ios_command and iosxr_command modules provide additional functionality over raw, such as specifying multiple commands to collect and returning metadata about the task execution (ex: failed and changed statuses).
+- Note: ios_command and iosxr_command require the "--connection network_cli" flag.  Networking modules do not use the default connection types (SSH) because most network hosts run limited execution environments that do not provide native Python.  Ansible modules using SSH connection type rely on Python scripts to be transferred and executed on the target node, whereas network modules are executed on the Ansible host (locally) and use other connection providers to interact with the target system.
 
 ### Optional exercises
 
 > - Do this section if you are ahead of schedule, else skip and come back later.
-> - This lab will be available to you for a few days after today's session.
 > - It is possible to use ad-hoc commands with more arguments, as below:
 > ```
-> $ ansible IOS -c local -m ios_command -a "authorize=true commands='show run int gig1'"
-> $ ansible IOS -c local -m ios_command -a "username=cisco password=cisco auth_pass=cisco authorize=true commands='show run int gig1'"
-> $ ansible XR -c local -m iosxr_facts -a "username=cisco password=cisco gather_subset=hardware"
+> $ ansible IOS -c network_cli -m ios_command -a "authorize=true commands='show run int gig1'"
+> $ ansible XR -c network_cli -m iosxr_facts -a "gather_subset=hardware"
 > ```
 
 ### Conclusion
@@ -343,7 +346,7 @@ Tue Jan  8 01:05:02.562 UTC
 
 :
 
-cisco@ansible-controller:~$ ansible IOS --connection local -m ios_command -a "commands='show ip route summ'"
+cisco@ansible-controller:~$ ansible IOS --connection network_cli -m ios_command -a "commands='show ip route summ'"
 R1 | SUCCESS => {
     "changed": false,
     "stdout": [
@@ -362,7 +365,7 @@ R1 | SUCCESS => {
         ]
     ]
 }
-cisco@ansible-controller:~$ ansible XR --connection local -m iosxr_command -a "commands='show route summ'"
+cisco@ansible-controller:~$ ansible XR --connection network_cli -m iosxr_command -a "commands='show route summ'"
 R2 | SUCCESS => {
     "changed": false,
     "stdout": [
@@ -541,7 +544,7 @@ cisco@ansible-controller:~$ vi p2-ioscmd.yml
 ---
 - name: collect ip route summary from all IOS devices
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: execute route summary command
@@ -557,7 +560,7 @@ cisco@ansible-controller:~$ vi p2-ioscmd.yml
 ```
 - Predict the outcome of this playbook.
 - Execute the playbook
-- After reviewing the playbook output, try run the playbook in verbose mode: with -v, -vv, or -vvv
+- After reviewing the playbook output, try to run the playbook in verbose mode: with -v, -vv, or -vvv
 
 ```
 $ ansible-playbook p2-ioscmd.yml --syntax-check
@@ -566,13 +569,11 @@ $ ansible-playbook p2-ioscmd.yml
 ```
 
 ### Conclusion
-- In this section you used the ios_command module to collect and display command output from an IOS device.
+- In this section you used the ios_command module to collect and display a cli command output from an IOS device.
 - Review the section and discuss if you have any questions.
 
 ### Reference
 
-> Reference:
-> - this is for future reference only (don't spend time on this now).
 > - Pay attention to sections: parameters and return values.
 > - http://docs.ansible.com/ansible/latest/modules/ios_command_module.html
 > - http://docs.ansible.com/ansible/latest/modules/modules_by_category.html
@@ -620,7 +621,7 @@ cisco@ansible-controller:~$ vi p3-xrcmd.yml
 ---
 - name: collect ip route summary from all XR devices
   hosts: XR
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: execute route summary command
@@ -643,12 +644,11 @@ $ ansible-playbook p3-xrcmd.yml
 ```
 
 ### Conclusion
-- In this section you used the xr_command module to collect and display command output from an XR router.
+- In this section you used the xr_command module to collect and display a cli command output from an XR router.
 - Review the section and discuss if you have any questions.
 
 ### Optional exercise
 > - Do this section if you are ahead of schedule, else skip and come back later.
-> - This lab will be available for you to work for a few days after Cisco Live. You have the option of doing this later as well.
 > - Write a playbook, op23-cmd.yml, to meet the below requirements:
 >   - Collect output of route summary from both IOS and XR routers
 >   - Use the modules, ios_command and iosxr_command
@@ -696,7 +696,7 @@ cisco@ansible-controller:~$ vi p4-iosconfig.yml
 ---
 - name: configure loopback1 interface on IOS devices
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: configure loopback101 interface
@@ -713,13 +713,13 @@ cisco@ansible-controller:~$ vi p4-iosconfig.yml
 - Check if loopback101 interface is created by p4-iosconfig.yml playbook
 
 ```
-$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+$ ansible IOS -c network_cli -m ios_command -a "commands='show run int loop101'"
 
 $ ansible-playbook p4-iosconfig.yml --syntax-check
 
 $ ansible-playbook p4-iosconfig.yml
 
-$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+$ ansible IOS -c network_cli -m ios_command -a "commands='show run int loop101'"
 ```
 
 ### Conclusion
@@ -728,7 +728,7 @@ $ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
 
 ### Example output
 ```
-cisco@ansible-controller:~$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+cisco@ansible-controller:~$ ansible IOS -c network_cli -m ios_command -a "commands='show run int loop101'"
 R1 | FAILED! => {
     "changed": false,
     "msg": "show run int loop101\r\n                          ^\r\n% Invalid input detected at '^' marker.\r\n\r\nR1-CSR1K#"
@@ -748,7 +748,7 @@ changed: [R1]
 PLAY RECAP ********************************************************************************************************************************************************
 R1                         : ok=1    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$ ansible IOS -c local -m ios_command -a "commands='show run int loop101'"
+cisco@ansible-controller:~$ ansible IOS -c network_cli -m ios_command -a "commands='show run int loop101'"
 R1 | SUCCESS => {
     "changed": false,
     "stdout": [
@@ -781,7 +781,7 @@ cisco@ansible-controller:~$ vi p5-xrconfig.yml
 ---
 - name: configure ACL test7 on all XR devices
   hosts: XR
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: configure acl test7
@@ -799,13 +799,13 @@ cisco@ansible-controller:~$ vi p5-xrconfig.yml
 - Check for the post-playbook config
 
 ```
-$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+$ ansible XR -c network_cli -m iosxr_command -a "commands='show run ipv4 access-list'"
 
 $ ansible-playbook p5-xrconfig.yml --syntax-check
 
 $ ansible-playbook p5-xrconfig.yml
 
-$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+$ ansible XR -c network_cli -m iosxr_command -a "commands='show run ipv4 access-list'"
 ```
 
 ### Conclusion
@@ -814,7 +814,7 @@ $ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
 
 ### Example output
 ```
-cisco@ansible-controller:~$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+cisco@ansible-controller:~$ ansible XR -c network_cli -m iosxr_command -a "commands='show run ipv4 access-list'"
 R2 | SUCCESS => {
     "changed": false,
     "stdout": [
@@ -841,7 +841,7 @@ changed: [R2]
 PLAY RECAP ********************************************************************************************************************************************************
 R2                         : ok=1    changed=1    unreachable=0    failed=0   
 
-cisco@ansible-controller:~$ ansible XR -c local -m iosxr_command -a "commands='show run ipv4 access-list'"
+cisco@ansible-controller:~$ ansible XR -c network_cli -m iosxr_command -a "commands='show run ipv4 access-list'"
 R2 | SUCCESS => {
     "changed": false,
     "stdout": [
@@ -874,7 +874,7 @@ cisco@ansible-controller:~$ vi p6-vars.yml
 ---
 - name: get config of gig1 and gig2
   hosts: IOS
-  connection: local
+  connection: network_cli
   vars:
     INTF1: GigabitEthernet1
     INTF2: GigabitEthernet2
@@ -1032,7 +1032,7 @@ cisco@ansible-controller:~$ vi p7-loops.yml
 ---
 - name: get config of gig1 and gig2 from IOS devices
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: get config of gig1 and gig2 and time
@@ -1040,7 +1040,7 @@ cisco@ansible-controller:~$ vi p7-loops.yml
         commands:
           - "{{item}}"
 
-      with_items:
+      loop:
            - show run int gig1
            - show run int gig2
            - show clock
@@ -1231,7 +1231,7 @@ $ ansible-playbook p8-conditionals.yml -v
 
 
 ### Reference
-> Reference: http://docs.ansible.com/ansible/latest/user_guide/playbooks_conditionals.html#the-when-statement
+> Details: http://docs.ansible.com/ansible/latest/user_guide/playbooks_conditionals.html#the-when-statement
 
 
 ### Example output
@@ -1253,9 +1253,7 @@ skipping: [R2]
 changed: [R1]
 
 TASK [debug] ******************************************************************************************************************************************************
-ok: [R2] => {
-    "IOSRT.stdout_lines": "VARIABLE IS NOT DEFINED!"
-}
+skipping: [R2]
 ok: [R1] => {
     "IOSRT.stdout_lines": [
         "",
@@ -1275,6 +1273,7 @@ skipping: [R1]
 changed: [R2]
 
 TASK [debug] ******************************************************************************************************************************************************
+skipping: [R1]
 ok: [R2] => {
     "XRRT.stdout_lines": [
         "",
@@ -1287,9 +1286,6 @@ ok: [R2] => {
         "Total                            3          1          0           640          ",
         ""
     ]
-}
-ok: [R1] => {
-    "XRRT.stdout_lines": "VARIABLE IS NOT DEFINED!"
 }
 
 PLAY RECAP ********************************************************************************************************************************************************
@@ -1344,7 +1340,7 @@ $ ansible-playbook p9-import.yml -vv
 
 ```
 cisco@ansible-controller:~$ ansible-playbook p9-import.yml -vv
-ansible-playbook 2.7.5
+ansible-playbook 2.7.10
   config file = /etc/ansible/ansible.cfg
   configured module search path = [u'/home/cisco/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
   ansible python module location = /usr/lib/python2.7/dist-packages/ansible
@@ -1416,12 +1412,12 @@ R2                         : ok=2    changed=0    unreachable=0    failed=0
 
 # 3. Automating common tasks
 - The following exercises will use Ansible to automate certain network operations tasks:
-  - Router Configuration Backup
-  - Device Health Monitoring
-  - Method of Procedure Automation
-  - Generate iBGP Config using Roles
-  - Generating bulk configuration
-  - TextFSM
+  - 3.1 Router Configuration Backup
+  - 3.2 Device Health Monitoring
+  - 3.3 Method of Procedure Automation
+  - 3.4 Generate iBGP Config using Roles
+  - 3.5 Generating bulk configuration
+  - 3.6 TextFSM
 
 ---
 ## 3.1 Router config backup
@@ -1450,7 +1446,7 @@ cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
       register: RUNCFG
 ```
 
-Note when using the raw module do not set the connection to local. The raw module simply takes the input argument and executes the command on the remote host.
+Note when using the raw module do not set the connection to network_cli. The raw module simply takes the input argument and executes the command on the remote host.
 
 #### Step-2: Edit the previous play to add a new task which will perform a time lookup. Then add another task to save the output to a file using the copy module.
 
@@ -1473,7 +1469,7 @@ Use the set_fact option to set a variable "time" equal to the current time value
 
 ```
 
-Note when saving the output to a file set the connection back to local, since the output files need to be saved on the ansible controller.
+Note when saving the output to a file set the connection to local, since the output files need to be saved on the ansible controller.
 
 - Run the playbook
 - Look for config files in `/home/cisco` directory
@@ -4142,7 +4138,7 @@ cisco@ansible-controller:~$ vi op23-cmd.yml
 ---
   - name: play-1:get route summary from IOS routers
     hosts: IOS
-    connection: local
+    connection: network_cli
 
     tasks:
       - name: execute IOS route summary command
@@ -4158,7 +4154,7 @@ cisco@ansible-controller:~$ vi op23-cmd.yml
 
   - name: play-2:get route summary from XR routers
     hosts: XR
-    connection: local
+    connection: network_cli
 
     tasks:
       - name: execute XR route summary command
@@ -4334,7 +4330,7 @@ cisco@ansible-controller:~$ vi op31-runcfg-bkup.yml
 - name: Write IOS Running Config to Startup Config
   hosts: IOS
   gather_facts: no
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: Write IOS Config
