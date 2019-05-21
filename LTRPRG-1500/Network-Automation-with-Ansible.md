@@ -79,8 +79,8 @@ grep -v "#" /etc/ansible/ansible.cfg | grep -v ^$
   - retry_files_enabled = False
 
 - Edit the config file
+  - **Root privileges are required to edit /etc/ansible/ansible.cfg, sudo password is cisco**
   - Use your favorite editing method to edit the file
-  - Root privileges are required to edit /etc/ansible/ansible.cfg, sudo password is cisco
   - Ubuntu inbuilt editors: vi, vim, or nano
   - [VI reference](./vi-reference.md)
 
@@ -151,10 +151,10 @@ sudo vi /etc/ansible/hosts
 cisco@ansible-controller:~$ sudo vi /etc/ansible/hosts
 
 [IOS]
-R1 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=ios
+R1 ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=ios
 
 [XR]
-R2 ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=iosxr
+R2 ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=iosxr
 
 [ALL:children]
 IOS
@@ -192,9 +192,9 @@ inventory      = /etc/ansible/hosts
 cisco@ansible-controller:~$ grep -v "#" /etc/ansible/hosts | grep -v ^$
 
 [IOS]
-R1	ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
+R1	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco
 [XR]
-R2	ansible_host=172.16.101.XX ansible_user=cisco ansible_ssh_pass=cisco
+R2	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco
 [ALL:children]
 IOS
 XR
