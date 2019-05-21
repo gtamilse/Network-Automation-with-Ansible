@@ -88,7 +88,8 @@ sudo vi /etc/ansible/ansible.cfg
 ```
 
 - The target config lines are already there in the file but are commented. Simply delete # at the beginning of the line.
-
+  
+  - Note: *library = /usr/share/my_modules/* will need to be changed to */home/cisco/*
   - Note: *gathering = implicit* will need to be changed to *explicit*
   - Note: *deprecation_warnings = True* will need to be changed to *False*
 
@@ -101,6 +102,7 @@ cisco@ansible-controller:~$ grep -v "^#" /etc/ansible/ansible.cfg | grep -v ^$
 
 [defaults]
 inventory      = /etc/ansible/hosts
+library        = /home/cisco/
 gathering = explicit
 host_key_checking = False
 timeout = 10
@@ -3220,6 +3222,7 @@ cisco@ansible-controller:~$ vi p36-ntc-xr-interfaces.yml
 
 ```
 cisco@ansible-controller:~/LTRPRG-1500$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr
+
 cisco_xr_show_controllers_HundredGigabitEthernet.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] Hu[[ndredGigabitEthernet]]
 cisco_xr_show_bgp_vrf_all_ipv4_unicast_summary.template, .*, cisco_xr, sh[[ow]] bg[[p]] v[[rf]] all ip[[v4]] uni[[cast]] summ[[ary]]
 cisco_xr_admin_show_controller_fabric_health.template, .*, cisco_xr, adm[[in]] sh[[ow]] controller fab[[ric]] hea[[lth]]
@@ -3368,6 +3371,7 @@ cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
 
 ```
 cisco@ansible-controller:~$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr_show_ver
+
 cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] br[[ief]]
 cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
 ```
@@ -3459,7 +3463,10 @@ ok: [R2] => {
 PLAY RECAP *****************************************************************************************************************************************************************************
 R2                         : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
 
+```
 
+
+```
 cisco@ansible-controller:~/LTRPRG-1500$ ansible-playbook p36-ntc-xr-version-check.yml  --syntax-check
 
 playbook: p36-ntc-xr-version-check.yml
