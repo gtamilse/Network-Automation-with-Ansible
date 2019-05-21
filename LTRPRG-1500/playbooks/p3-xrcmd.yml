@@ -1,0 +1,17 @@
+---
+- name: collect ip route summary from all XR devices
+  hosts: XR
+  connection: network_cli
+
+  tasks:
+    - name: execute route summary command
+      iosxr_command:
+        commands:
+          show route summary
+
+      register: P3_OUTPUT
+
+    - name: print output
+      debug:
+        var: P3_OUTPUT.stdout_lines
+

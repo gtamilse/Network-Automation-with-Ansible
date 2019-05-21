@@ -1,0 +1,15 @@
+---
+- name: get interface info from all hosts
+  hosts: ALL
+
+  tasks:
+    - name: execute show ip interface brief
+      raw:
+        show ip interface brief
+
+      register: P2_RAW_OUTPUT
+
+    - name: print data saved in the variable
+      debug:
+        var: P2_RAW_OUTPUT.stdout_lines
+

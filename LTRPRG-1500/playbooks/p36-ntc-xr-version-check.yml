@@ -1,0 +1,32 @@
+---
+- name: GET STRUCTURED DATA FOR SHOW VERSION BRIEF OUTPUT
+  hosts: XR
+  connection: local
+  gather_facts: False
+  
+  tasks:
+    - name: Get Show Version Brief Data
+      ntc_show_command:
+        connection: ssh
+        platform: cisco_xr
+        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
+        #use_templates: True 
+        command: show version brief
+        host: 172.16.101.64
+        username: cisco
+        password: cisco
+
+      register:  mydata
+
+    - name: Print Show version Brief Data
+      debug: var=mydata
+
+    - name: Print Software Image file location
+      debug: msg="Software Image file location is {{ mydata.response[0].imgloc}}"
+
+    - name: Print IOS-XR SW Version
+      debug: msg="IOS-XR SW Version is {{ mydata.response[0].version}}"
+
+    - name: Print DEVICE Uptime
+      debug: msg="Device Uptime is {{ mydata.response[0].uptime}}"
+

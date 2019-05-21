@@ -1,0 +1,20 @@
+---
+- name: pre-config captures
+  hosts: localhost
+
+  tasks:
+    - name: run precheck playbook
+      command: ansible-playbook p33-ospf-capture.yml --tags precheck
+
+- name: configure OSPF on both routers
+  import_playbook: p33-ospf-config.yml
+
+- name: post-config captures
+  hosts: localhost
+
+  tasks:
+    - pause: seconds=30
+
+    - name: run postcheck playbook
+      command: ansible-playbook p33-ospf-capture.yml --tags postcheck
+

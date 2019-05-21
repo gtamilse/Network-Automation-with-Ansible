@@ -1,0 +1,32 @@
+---
+- name: Compare pre and post files and create a diff file
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - set_fact: TIMESTAMP="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
+
+    - name: diff pre and post IOS files
+      command: diff /home/cisco/LTRPRG-1500/R1-OSPF-Precheck.txt /home/cisco/LTRPRG-1500/R1-OSPF-Postcheck.txt
+
+      register: IOS_DIFF
+
+      failed_when: "IOS_DIFF.rc > 1"
+
+    - name: create diff file with timestamp included in the name
+      copy:
+        content: "{{ IOS_DIFF.stdout }}"
+        dest: "/home/cisco/LTRPRG-1500/op33-ios_diff_{{ TIMESTAMP }}.txt"
+
+    - name: diff pre and post XR files
+      command: diff /home/cisco/LTRPRG-1500/R2-OSPF-Precheck.txt /home/cisco/LTRPRG-1500/R2-OSPF-Postcheck.txt
+
+      register: XR_DIFF
+
+      failed_when: "XR_DIFF.rc > 1"
+
+    - name: create diff file with timestamp included in the name
+      copy:
+        content: "{{ XR_DIFF.stdout }}"
+        dest: "/home/cisco/LTRPRG-1500/op33-xr_diff_{{ TIMESTAMP }}.txt"
+

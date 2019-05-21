@@ -1,0 +1,17 @@
+---
+- name: collect ip route summary from all IOS devices
+  hosts: IOS
+  connection: network_cli
+
+  tasks:
+    - name: execute route summary command
+      ios_command:
+        commands:
+          show ip route summary
+
+      register: P2_OUTPUT
+
+    - name: print output
+      debug:
+        var: P2_OUTPUT.stdout_lines
+

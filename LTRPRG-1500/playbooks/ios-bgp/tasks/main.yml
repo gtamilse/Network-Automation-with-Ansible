@@ -1,0 +1,4 @@
+---
+- name: Generate R1 IOS router iBGP config file
+  template: src=IOS-BGP.j2 dest=./{{item.hostname}}-BGP.txt
+  with_items: "{{router_list}}"

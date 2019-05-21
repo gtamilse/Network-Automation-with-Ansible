@@ -1,0 +1,41 @@
+ 
+
+ ===show run router ospf=== 
+
+ router ospf 1
+ router-id 192.168.0.2
+ area 0
+  interface Loopback0
+   passive enable
+  !
+  interface GigabitEthernet0/0/0/0
+  !
+ !
+! 
+
+ ===show ospf int bri=== 
+
+ * Indicates MADJ interface, (P) Indicates fast detect hold down state
+
+Interfaces for OSPF 1
+
+Interface          PID   Area            IP Address/Mask    Cost  State Nbrs F/C
+Lo0                1     0               192.168.0.2/32     1     LOOP  0/0
+Gi0/0/0/0          1     0               10.0.0.6/30        1     DR    1/1 
+
+ ===show ospf nei=== 
+
+ * Indicates MADJ interface
+# Indicates Neighbor awaiting BFD session up
+
+Neighbors for OSPF 1
+
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+192.168.0.1     1     FULL/BDR        00:00:33    10.0.0.5        GigabitEthernet0/0/0/0
+    Neighbor is up for 00:08:55
+
+Total neighbor count: 1 
+
+===show route ospf=== 
+
+ O    192.168.0.1/32 [110/2] via 10.0.0.5, 00:08:15, GigabitEthernet0/0/0/0 

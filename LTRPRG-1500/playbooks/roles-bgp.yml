@@ -1,0 +1,27 @@
+---
+- name: Generate router bgp configuration files using Roles and Jinja2 Templates
+  hosts: localhost
+
+  roles:
+   - xr-bgp
+   - ios-bgp
+
+- name: Task to upload config to R1-IOS
+  hosts: IOS
+  gather_facts: false
+  connection: local
+  tasks:
+  - name: "Load iBGP configs for R1 router using SRC option using IOS_CONFIG Module"
+    ios_config:
+      src: "/home/cisco/LTRPRG-1500/R1-CSR1K-BGP.txt"
+
+- name: Task to upload config to R2-XRV
+  gather_facts: false
+  connection: local
+  hosts: XR
+
+  tasks:
+  - name: "Load iBGP configs for R2 router using SRC option of IOSXR_CONFIG Module "
+    iosxr_config:
+      src: "/home/cisco/LTRPRG-1500/R2-XRv-BGP.txt"
+

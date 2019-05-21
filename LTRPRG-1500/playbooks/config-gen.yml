@@ -1,0 +1,7 @@
+---
+  - name: Playbook to generate configuration based on role "config-gen"
+    hosts: localhost
+
+    roles:
+       - config-gen
+

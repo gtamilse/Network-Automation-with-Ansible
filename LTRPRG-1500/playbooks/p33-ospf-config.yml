@@ -1,0 +1,53 @@
+---
+- name: configure ospf on IOS routers - play-1
+  hosts: IOS
+  connection: local
+
+  tasks:
+    - name: pre-check for ospf config
+      ios_command:
+        commands:
+          - show run | section ospf
+
+      register: IOS_OSPF
+
+    - meta: end_play
+      when: '"router ospf" in IOS_OSPF.stdout[0]'
+
+    - name: configure IOS ospf
+      ios_config:
+          parents: "router ospf 1"
+          lines:
+            - "router-id 192.168.0.1"
+            - "passive-interface Loopback0"
+            - "network 192.168.0.1 0.0.0.0 area 0"
+            - "network 10.0.0.4 0.0.0.3 area 0"
+          save_when: always
+
+- name: configure ospf on XR routers - play-2
+  hosts: XR
+  connection: local
+
+  tasks:
+    - name: pre-check for ospf config
+      iosxr_command:
+        commands:
+          - show run router ospf
+
+      register: XR_OSPF
+
+    - meta: end_play
+      when: '"router ospf" in XR_OSPF.stdout[0]'
+
+    - name: configure XR ospf
+      iosxr_config:
+        parents: "router ospf 1"
+        lines:
+          - "router-id 192.168.0.2"
+          - "area 0"
+          - "interface Loopback0"
+          - "passive enable"
+          - "exit"
+          - "interface GigabitEthernet0/0/0/0"
+          - "exit"
+

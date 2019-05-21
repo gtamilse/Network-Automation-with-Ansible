@@ -1,0 +1,33 @@
+---
+  - name: play-1:get route summary from IOS routers
+    hosts: IOS
+    connection: network_cli
+
+    tasks:
+      - name: execute IOS route summary command
+        ios_command:
+          commands:
+            show ip route summary
+
+        register: IOS_OUTPUT
+
+      - name: print output
+        debug:
+          var: IOS_OUTPUT.stdout_lines
+
+  - name: play-2:get route summary from XR routers
+    hosts: XR
+    connection: network_cli
+
+    tasks:
+      - name: execute XR route summary command
+        iosxr_command:
+          commands:
+            show route summary
+
+        register: XR_OUTPUT
+
+      - name: print output
+        debug:
+          var: XR_OUTPUT.stdout_lines
+

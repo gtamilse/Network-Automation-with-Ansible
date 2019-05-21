@@ -1,0 +1,10 @@
+21c21
+< 192.168.0.2       1   FULL/DR         00:00:31    10.0.0.6        GigabitEthernet2 
+---
+> 192.168.0.2       1   FULL/DR         00:00:34    10.0.0.6        GigabitEthernet2 
+38c38
+< O        192.168.0.2 [110/2] via 10.0.0.6, 00:07:14, GigabitEthernet2 
+\ No newline at end of file
+---
+> O        192.168.0.2 [110/2] via 10.0.0.6, 00:08:07, GigabitEthernet2 
+\ No newline at end of file

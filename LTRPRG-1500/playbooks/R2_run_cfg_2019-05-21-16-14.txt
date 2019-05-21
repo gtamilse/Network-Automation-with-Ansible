@@ -1,0 +1,62 @@
+
+ ===show run=== 
+ 
+
+Tue May 21 16:14:02.622 UTC
+Building configuration...
+!! IOS XR Configuration 6.2.2.15I
+!! Last configuration change at Tue May 21 15:48:04 2019 by cisco
+!
+!  IOS-XR Config generated on 2018-03-27 20:08
+! by autonetkit_0.24.0
+hostname R2-XRv
+service timestamps log datetime msec
+service timestamps debug datetime msec
+telnet vrf default ipv4 server max-servers 10
+telnet vrf Mgmt-intf ipv4 server max-servers 10
+domain name virl.info
+domain lookup disable
+cdp
+line template vty
+ timestamp
+ exec-timeout 720 0
+!
+line console
+ exec-timeout 0 0
+!
+line default
+ exec-timeout 720 0
+!
+vty-pool default 0 50
+control-plane
+ management-plane
+  inband
+   interface all
+    allow all
+   !
+  !
+ !
+!
+ipv4 access-list test7
+ 10 permit ipv4 host 1.1.1.1 any
+ 20 permit ipv4 host 2.2.2.2 any
+ 30 permit ipv4 host 3.3.3.3 any
+!
+interface Loopback0
+ description Loopback
+ ipv4 address 192.168.0.2 255.255.255.255
+!
+interface MgmtEth0/0/CPU0/0
+ description OOB Management
+ cdp
+ ! Configured on launch
+ ipv4 address 172.16.101.64 255.255.255.0
+!
+interface GigabitEthernet0/0/0/0
+ description to R1-CSR1K
+ cdp
+ ipv4 address 10.0.0.6 255.255.255.252
+!
+ssh server v2
+end
+

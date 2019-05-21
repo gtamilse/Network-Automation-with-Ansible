@@ -1,0 +1,12 @@
+router bgp {{item.LCL_ASN}}
+ bgp router-id {{item.RID}}
+ address-family ipv4 unicast
+ !
+ neighbor {{item.PEER_IP}}
+  remote-as {{item.RMT_ASN}}
+  update-source Loopback0
+  address-family ipv4 unicast
+  !
+ !
+!
+

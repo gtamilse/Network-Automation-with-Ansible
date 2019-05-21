@@ -1,0 +1,7 @@
+
+router bgp {{item.LCL_ASN}}
+ bgp router-id {{item.RID}}
+ bgp log-neighbor-changes
+ neighbor {{item.PEER_IP}} remote-as {{item.RMT_ASN}}
+ neighbor {{item.PEER_IP}} update-source Loopback0
+!

@@ -1,0 +1,12 @@
+34,35c34,35
+< 192.168.0.1     1     FULL/BDR        00:00:38    10.0.0.5        GigabitEthernet0/0/0/0
+<     Neighbor is up for 00:08:02
+---
+> 192.168.0.1     1     FULL/BDR        00:00:33    10.0.0.5        GigabitEthernet0/0/0/0
+>     Neighbor is up for 00:08:55
+41c41
+<  O    192.168.0.1/32 [110/2] via 10.0.0.5, 00:07:22, GigabitEthernet0/0/0/0 
+\ No newline at end of file
+---
+>  O    192.168.0.1/32 [110/2] via 10.0.0.5, 00:08:15, GigabitEthernet0/0/0/0 
+\ No newline at end of file

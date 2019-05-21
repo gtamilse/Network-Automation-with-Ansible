@@ -1,0 +1,37 @@
+
+
+ ===show platform=== 
+
+ [[u'Node\t\tType\t\tPLIM\t\tState\t\tConfig State', u'-----------------------------------------------------------------------------', u'0/0/CPU0        RP(Active)      N/A             IOS XR RUN      PWR,NSHUT,MON']] 
+
+ ===show redundancy=== 
+
+ [u'Redundancy information for node 0/0/CPU0:\n==========================================\nNode 0/0/CPU0 is in ACTIVE role\nNode 0/0/CPU0 has no valid partner\n\nDetails\n--------\nCurrent active rmf state: \n    NSR not ready since Standby is not Present\n\nReload and boot info\n----------------------\nRP reloaded Fri May 17 17:53:04 2019: 4 days, 39 minutes ago\nActive node booted Fri May 17 17:53:04 2019: 4 days, 39 minutes ago\n\nActive node reload : Unable to retrieve reboot reason'] 
+
+ ===show proc cpu=== 
+
+ [u'CPU utilization for one minute: 1%; five minutes: 1%; fifteen minutes: 1%\n \nPID    1Min    5Min    15Min Process'] 
+
+ ===show memory summary=== 
+
+ [u'node:      node0_0_CPU0\n\x0cPhysical Memory: 3071M total (1359M available)\n Application Memory : 2868M (1359M available)'] 
+
+ ===show ipv4 vrf all int bri=== 
+
+ [u'Interface                      IP-Address      Status          Protocol Vrf-Name\nLoopback0                      192.168.0.2     Up              Up       default \nMgmtEth0/0/CPU0/0              172.16.101.64   Up              Up       default \nGigabitEthernet0/0/0/0         10.0.0.6        Up              Up       default'] 
+
+ ===show route sum=== 
+
+ [u'Route Source                     Routes     Backup     Deleted     Memory(bytes)\nconnected                        2          1          0           480          \nlocal                            3          0          0           480          \ndagr                             0          0          0           0            \nospf 1                           1          0          0           160          \nbgp 1                            0          0          0           0            \nTotal                            6          1          0           1120'] 
+
+ ===show ospf nei=== 
+
+ [u'* Indicates MADJ interface\n# Indicates Neighbor awaiting BFD session up\n\nNeighbors for OSPF 1\n\nNeighbor ID     Pri   State           Dead Time   Address         Interface\n192.168.0.1     1     FULL/BDR        00:00:31    10.0.0.5        GigabitEthernet0/0/0/0\n    Neighbor is up for 01:50:05\n\nTotal neighbor count: 1'] 
+
+ ===show mpls ldp neighbor=== 
+
+ [u''] 
+
+ ===show bgp sum=== 
+
+ [u'Address Family: IPv4 Unicast\n192.168.0.1       0     1       4       3        2    0    0 00:01:19          0']

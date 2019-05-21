@@ -1,0 +1,46 @@
+---
+- name: Get Router Config from All Routers
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Collect Show run from all routers
+      raw: "show run"
+
+      register: RUNCFG
+
+    - set_fact: time="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===show run=== \n {{ RUNCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_run_cfg_{{ time }}.txt"
+
+- name: Write IOS Running Config to Startup Config
+  hosts: IOS
+  gather_facts: no
+  connection: network_cli
+
+  tasks:
+    - name: Write IOS Config
+      ios_command:
+        authorize: yes
+        commands: write memory
+
+- name: Get Admin Config from XR Routers
+  hosts: XR
+  gather_facts: no
+
+  tasks:
+    - name: Collect Admin show run from XR routers
+      raw: "admin show run"
+
+      register: ADMINCFG
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===admin show run=== \n {{ ADMINCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_admin_run_cfg_{{ time }}.txt"
+

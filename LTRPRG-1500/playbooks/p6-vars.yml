@@ -1,0 +1,29 @@
+---
+- name: get config of gig1 and gig2
+  hosts: IOS
+  connection: network_cli
+  vars:
+    INTF1: GigabitEthernet1
+    INTF2: GigabitEthernet2
+
+  tasks:
+    - name: Show run interface Gig
+      ios_command:
+        commands:
+          - sho run int {{INTF1}}
+          - sho run int {{INTF2}}
+
+      register: INT_OUT
+
+    - name: print stuff, style-1
+      debug:
+        var: INT_OUT
+
+    - name: print stuff, style-2
+      debug:
+        var: INT_OUT.stdout_lines[0]
+
+    - name: print stuff, style-2
+      debug:
+        var: INT_OUT.stdout_lines[1]
+

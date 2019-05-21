@@ -1,0 +1,86 @@
+---
+- name: XR Router Health Monitoring
+  hosts: XR
+  gather_facts: false
+  connection: network_cli
+
+
+  tasks:
+    - name: Router Health Monitoring Commands
+      iosxr_command:
+        commands:
+          - "{{item}}"
+
+      with_items:
+          - show platform
+          - show redundancy
+          - show proc cpu | ex "0%      0%       0%"
+          - show memory sum location all | in "node|Pyhsical|available"
+          - show ipv4 vrf all int bri
+          - show route sum
+          - show ospf neighbor
+          - show mpls ldp neighbor | in "Id|Up|State"
+          - show bgp all all sum | in "Address|^[0-9]+"
+
+      register: iosxr_mon
+
+    - name: Save output to a file
+      copy:
+        content="\n\n ===show platform=== \n\n {{ iosxr_mon.results[0].stdout_lines }} \n\n ===show redundancy=== \n\n {{ iosxr_mon.results[1].stdout }} \n\n ===show proc cpu=== \n\n {{ iosxr_mon.results[2].stdout }} \n\n ===show memory summary=== \n\n {{ iosxr_mon.results[3].stdout }} \n\n ===show ipv4 vrf all int bri=== \n\n {{ iosxr_mon.results[4].stdout }} \n\n ===show route sum=== \n\n {{ iosxr_mon.results[5].stdout }} \n\n ===show ospf nei=== \n\n {{ iosxr_mon.results[6].stdout }} \n\n ===show mpls ldp neighbor=== \n\n {{ iosxr_mon.results[7].stdout }} \n\n ===show bgp sum=== \n\n {{iosxr_mon.results[8].stdout }}"
+        dest="./{{ inventory_hostname }}_health_check.txt"
+
+    - name: Platform Hardware Check
+      debug:
+        msg: " {{ inventory_hostname }} show_platform indicates card is down"
+      when: '"Down" in iosxr_mon.results[0].stdout[0]'
+
+    - name: Redundancy Check
+      debug:
+        msg: " {{ inventory_hostname }} show_redundancy indicates card is not present"
+      when: '"NSR not ready since Standby is not Present" in iosxr_mon.results[1].stdout[0]'
+
+    - name: CPU Utilization Check
+      debug:
+         msg:
+           - "{{ inventory_hostname }} CPU Utilization "
+           - "{{ iosxr_mon.results[2].stdout_lines }}"
+
+    - name: Memory Utilization Check
+      debug:
+        msg:
+          - "{{ inventory_hostname }} Memory Utilization: "
+          - "{{ iosxr_mon.results[3].stdout_lines }}"
+
+    - name: Down Interface Checks
+      debug:
+        msg: " {{ inventory_hostname }} Interface is Down"
+      when: '"Down" in iosxr_mon.results[4].stdout[0]'
+
+    - name: Route Summary Check
+      debug:
+        msg: " {{ item }}"
+      with_items:
+        - " {{ inventory_hostname }} Route Summary: "
+        - "{{ iosxr_mon.results[5].stdout_lines[0] }}"
+
+    - name: OSPF Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} OSPF Neighbor Summary: "
+          - " {{ iosxr_mon.results[6].stdout_lines }}"
+      when: '"OSPF" in iosxr_mon.results[6].stdout[0]'
+
+    - name: MPLS Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} MPLS LDP Summary: "
+          - " {{ iosxr_mon.results[7].stdout_lines }}"
+      when: '"Id" in iosxr_mon.results[7].stdout[0]'
+
+    - name: BGP Neighbor Check
+      debug:
+        msg:
+          - " {{ inventory_hostname }} BGP Sessions Down: "
+          - " {{ iosxr_mon.results[8].stdout_lines }} "
+      when: '"Active" in iosxr_mon.results[8].stdout[0]'
+

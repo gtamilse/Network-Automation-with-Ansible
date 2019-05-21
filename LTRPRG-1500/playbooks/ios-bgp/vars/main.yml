@@ -1,0 +1,8 @@
+---
+router_list:
+  -  hostname: R1-CSR1K
+     profile: IOS-XE
+     RID: 192.168.0.1
+     PEER_IP: 192.168.0.2
+     LCL_ASN: 1
+     RMT_ASN: 1

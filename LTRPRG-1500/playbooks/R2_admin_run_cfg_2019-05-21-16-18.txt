@@ -1,0 +1,13 @@
+
+ ===admin show run=== 
+ 
+
+Tue May 21 16:18:15.895 UTC
+Building configuration...
+!! IOS XR Admin Configuration 6.2.2.15I
+username cisco
+ group root-system
+ secret 5 $1$rGci$oQVN9KayXAJ4OdN6pbiFf1
+!
+end
+

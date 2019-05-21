@@ -1,0 +1,14 @@
+---
+- name: configure loopback1 interface on IOS devices
+  hosts: IOS
+  connection: network_cli
+
+  tasks:
+    - name: configure loopback101 interface
+      ios_config:
+        parents: interface loopback101
+        lines:
+          - description test config by p4
+          - ip address 1.1.1.101 255.255.255.255
+          - shutdown
+

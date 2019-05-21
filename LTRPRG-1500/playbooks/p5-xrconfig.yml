@@ -1,0 +1,14 @@
+---
+- name: configure ACL test7 on all XR devices
+  hosts: XR
+  connection: network_cli
+
+  tasks:
+    - name: configure acl test7
+      iosxr_config:
+        parents: ipv4 access-list test7
+        lines:
+          - 10 permit ipv4 host 1.1.1.1 any
+          - 20 permit ipv4 host 2.2.2.2 any
+          - 30 permit ipv4 host 3.3.3.3 any
+

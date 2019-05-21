@@ -1,0 +1,38 @@
+ 
+
+ ===show run router ospf=== 
+
+ ip ospf cost 1
+router ospf 1
+ router-id 192.168.0.1
+ passive-interface Loopback0
+ network 10.0.0.4 0.0.0.3 area 0
+ network 192.168.0.1 0.0.0.0 area 0 
+
+ ===show ip ospf int bri=== 
+
+ Interface    PID   Area            IP Address/Mask    Cost  State Nbrs F/C
+Lo0          1     0               192.168.0.1/32     1     LOOP  0/0
+Gi2          1     0               10.0.0.5/30        1     BDR   1/1 
+
+ ===show ip ospf nei=== 
+
+ Neighbor ID     Pri   State           Dead Time   Address         Interface
+192.168.0.2       1   FULL/DR         00:00:31    10.0.0.6        GigabitEthernet2 
+
+ ===show ip route ospf=== 
+
+ Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       o - ODR, P - periodic downloaded static route, H - NHRP, l - LISP
+       a - application route
+       + - replicated route, % - next hop override, p - overrides from PfR
+
+Gateway of last resort is not set
+
+      192.168.0.0/32 is subnetted, 2 subnets
+O        192.168.0.2 [110/2] via 10.0.0.6, 00:07:14, GigabitEthernet2 

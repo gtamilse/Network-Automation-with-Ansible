@@ -1,0 +1,23 @@
+---
+- name: GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT
+  hosts: XR
+  connection: local
+  gather_facts: False
+  
+  tasks:
+    - name: Get Show Interface Brief Data
+      ntc_show_command:
+        connection: ssh
+        platform: cisco_xr
+        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
+        command: show interface brief
+        host: 172.16.101.64
+        username: cisco
+        password: cisco
+
+      register:  mydata
+
+    - name: Print Show Interface Brief Data
+      debug: var=mydata
+
+

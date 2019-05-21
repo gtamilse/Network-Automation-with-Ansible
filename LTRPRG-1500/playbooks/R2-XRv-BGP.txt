@@ -1,0 +1,12 @@
+router bgp 1
+ bgp router-id 192.168.0.2
+ address-family ipv4 unicast
+ !
+ neighbor 192.168.0.1
+  remote-as 1
+  update-source Loopback0
+  address-family ipv4 unicast
+  !
+ !
+!
+

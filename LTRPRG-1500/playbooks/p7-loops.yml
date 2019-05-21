@@ -1,0 +1,22 @@
+---
+- name: get config of gig1 and gig2 from IOS devices
+  hosts: IOS
+  connection: network_cli
+
+  tasks:
+    - name: get config of gig1 and gig2 and time
+      ios_command:
+        commands:
+          - "{{item}}"
+
+      loop:
+           - show run int gig1
+           - show run int gig2
+           - show clock
+
+      register: P7_OUT
+
+    - name: print stuff
+      debug:
+        var: P7_OUT
+

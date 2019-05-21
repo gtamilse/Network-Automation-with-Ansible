@@ -1,0 +1,7 @@
+---
+- name: route summary from IOS routers
+  import_playbook: p2-ioscmd.yml
+
+- name: route summary from XR routers
+  import_playbook: p3-xrcmd.yml
+

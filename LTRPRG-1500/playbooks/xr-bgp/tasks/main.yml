@@ -1,0 +1,5 @@
+---
+- name: Generate R2 XRV router iBGP config file
+  template: src=XR-BGP.j2 dest=./{{item.hostname}}-BGP.txt
+  with_items: "{{router_list}}"
+

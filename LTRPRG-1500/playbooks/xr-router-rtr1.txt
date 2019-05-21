@@ -1,0 +1,76 @@
+hostname xr-router-rtr1
+service timestamps log datetime msec
+service timestamps debug datetime msec
+clock timezone EST -5
+clock summer-time EDT recurring
+telnet vrf default ipv4 server max-servers 10
+telnet vrf Mgmt-intf ipv4 server max-servers 10
+domain lookup disable
+vrf Mgmt-intf
+ address-family ipv4 unicast
+ !
+ address-family ipv6 unicast
+ !
+!
+domain name virl.info
+ssh server v2
+ssh server vrf Mgmt-intf
+!
+line template vty
+timestamp
+exec-timeout 720 0
+!
+line console
+exec-timeout 0 0
+!
+line default
+exec-timeout 720 0
+!
+vty-pool default 0 50
+control-plane
+ management-plane
+  inband
+   interface all
+    allow all
+   !
+  !
+ !
+!
+!
+cdp
+!
+!
+interface Loopback0
+  description Loopback
+  ipv4 address 192.168.0.1 255.255.255.255
+!
+interface GigabitEthernet0/0/0/0
+  description to R1-CSR1kv
+  ipv4 address 10.0.0.5 255.255.255.0
+  cdp
+  no shutdown
+!
+interface GigabitEthernet0/0/0/1
+  description to R3-NXOS
+  ipv4 address 10.1.0.5 255.255.255.0
+  cdp
+  no shutdown
+!
+router ospf 16509
+  log adjacency changes
+  router-id 192.168.0.1
+  address-family ipv4
+  area 0
+    !
+    interface Loopback0
+      passive enable
+    !
+interface GigabitEthernet0/0/0/0
+cost 1
+!
+interface GigabitEthernet0/0/0/1
+cost 1
+!
+  !
+!
+!

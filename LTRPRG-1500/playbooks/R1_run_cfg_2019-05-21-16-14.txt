@@ -1,0 +1,213 @@
+
+ ===show run=== 
+ 
+Building configuration...
+
+Current configuration : 4178 bytes
+!
+! Last configuration change at 15:46:31 UTC Tue May 21 2019 by cisco
+!
+version 16.5
+service timestamps debug datetime msec
+service timestamps log datetime msec
+platform qfp utilization monitor load 80
+no platform punt-keepalive disable-kernel-core
+platform console serial
+!
+hostname R1-CSR1K
+!
+boot-start-marker
+boot-end-marker
+!
+!
+enable secret 4 tnhtc92DXBhelxjYk8LWJrPV36S2i4ntXrpb4RFmfqY
+enable password cisco
+!
+no aaa new-model
+!
+!
+!
+!
+!
+!
+!
+!
+!
+
+no ip domain lookup
+ip domain name virl.info
+!
+!
+!
+ipv6 unicast-routing
+!
+!
+!
+!
+!
+!
+!
+subscriber templating
+! 
+! 
+! 
+! 
+!
+!
+!
+multilink bundle-name authenticated
+!
+!
+!
+!
+!
+crypto pki trustpoint TP-self-signed-1090105924
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-1090105924
+ revocation-check none
+ rsakeypair TP-self-signed-1090105924
+!
+!
+crypto pki certificate chain TP-self-signed-1090105924
+ certificate self-signed 01
+  30820330 30820218 A0030201 02020101 300D0609 2A864886 F70D0101 05050030 
+  31312F30 2D060355 04031326 494F532D 53656C66 2D536967 6E65642D 43657274 
+  69666963 6174652D 31303930 31303539 3234301E 170D3139 30353137 31373535 
+  31305A17 0D323030 31303130 30303030 305A3031 312F302D 06035504 03132649 
+  4F532D53 656C662D 5369676E 65642D43 65727469 66696361 74652D31 30393031 
+  30353932 34308201 22300D06 092A8648 86F70D01 01010500 0382010F 00308201 
+  0A028201 0100B9DD 32014FCA B612094B FF5B2C85 11FC9CD7 BAF0F12E F021598C 
+  8D95A0C5 0556C5A8 AE1F7277 4280B017 3D85A47A C8DA5ECD 4F8494DF 85B8AD51 
+  181F889A 5B13ED96 25540012 E49A6839 667FE1E9 5BFDD3FB 2F926522 95FCB51B 
+  9A9ED47C 21702808 0F06C405 0291AAFC 134C1219 1CE70EAD 3AA251EC 9CB67567 
+  490DE347 200E9D21 BD164666 D8911FE4 E5AD9431 95BD0B5A 542F4E63 8F9A1910 
+  D3AB1305 95761140 093F3762 24FA2568 90F3D25B D6C4C6B2 F13A3DC2 0B2CDDBD 
+  9802E636 AB14B750 1262022E DD5A2DF0 A02C01B2 550E1485 76575A4C 152CE630 
+  7BA75931 998DE2FF D94BCE1B 202C09E5 292F3E0B 51D1B826 C0926799 6BB29B50 
+  CE0B1437 72E30203 010001A3 53305130 0F060355 1D130101 FF040530 030101FF 
+  301F0603 551D2304 18301680 146A5A0E 821FE078 C9DC6B7F 006C7D0B C88C8C11 
+  B0301D06 03551D0E 04160414 6A5A0E82 1FE078C9 DC6B7F00 6C7D0BC8 8C8C11B0 
+  300D0609 2A864886 F70D0101 05050003 82010100 4BDE0272 B9D71A55 136B7DEF 
+  F75C6BCA EAC32DED D1F4B274 8C38CED1 103E38AA DD64DE14 B270D6B6 AB02913D 
+  9A38A4C0 690322A9 8BAF98C9 87CC7A65 B0CF31AB 8DFB4B7D 3C987079 33D47484 
+  CC4B4EC2 60FEC599 FC135C09 9681AD9B 2746DBC9 657F0F14 73F5BDA4 D82FD076 
+  2635C5FD 770A7D87 C9A06FA2 8E4E1A99 83A5184A DA1C780D 74885071 C7731B50 
+  97419C79 2C2F5C32 42E1F269 3AB5BF98 CC82E082 A41B3027 4207696C A9A3BC04 
+  C43D4528 CC0B5AF5 BE6EE06E C5511E9C B7CF56EE 119030B0 1E968F0F 3BAA390C 
+  85D311F0 6950BD96 FA1A0AE1 3D25F6DB 15B99E25 44E239EF FE91BDE9 F317772D 
+  C237D9AA 64B0FD85 E2E330FA BA51EE84 FCF3DE16
+  	quit
+!
+!
+!
+!
+!
+!
+!
+!
+license udi pid CSR1000V sn 913JGU4YER3
+license accept end user agreement
+license boot level ax
+diagnostic bootup level minimal
+!
+spanning-tree extend system-id
+!
+!
+username cisco privilege 15 secret 5 $1$KAkp$VZzGLqSpWwwqJ2pPEZZY50
+!
+redundancy
+!
+!
+!
+!
+!
+cdp run
+!
+! 
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+! 
+! 
+!
+!
+interface Loopback0
+ description Loopback
+ ip address 192.168.0.1 255.255.255.255
+!
+interface Loopback101
+ description test config by p4
+ ip address 1.1.1.101 255.255.255.255
+ shutdown
+!
+interface GigabitEthernet1
+ description OOB Management
+ ip address 172.16.101.63 255.255.255.0
+ negotiation auto
+ cdp enable
+ no mop enabled
+ no mop sysid
+!
+interface GigabitEthernet2
+ description to R2-XRv
+ ip address 10.0.0.5 255.255.255.252
+ ip ospf cost 1
+ negotiation auto
+ cdp enable
+ no mop enabled
+ no mop sysid
+!
+
+threat-visibility
+!
+virtual-service csr_mgmt
+!
+ip forward-protocol nd
+ip http server
+ip http authentication local
+ip http secure-server
+!
+ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+ip ssh server algorithm authentication password
+ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
+!
+!
+!
+!
+!
+control-plane
+!
+ !
+ !
+ !
+ !
+!
+!
+!
+!
+!
+line con 0
+ password cisco
+ stopbits 1
+line vty 0 4
+ exec-timeout 720 0
+ password cisco
+ login local
+ transport input telnet ssh
+!
+!
+!
+!
+!
+!
+end

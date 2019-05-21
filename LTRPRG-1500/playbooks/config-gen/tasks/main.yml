@@ -1,0 +1,16 @@
+---
+- name: Generate the configuration for xr-routers
+  template:
+     src=xr-config-template.j2
+     dest=./{{item.hostname}}.txt
+  with_items:
+     - "{{ xr_hostnames }}"
+
+- name: Generate the configuration for ios-routers
+  template:
+     src=ios-config-template.j2
+     dest=./{{item.hostname}}.txt
+  with_items:
+     - "{{ ios_hostnames }}"
+
+# tasks file for config-gen

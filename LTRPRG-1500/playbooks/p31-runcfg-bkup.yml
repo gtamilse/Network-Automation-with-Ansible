@@ -1,0 +1,19 @@
+---
+- name: Get Router Config from All Routers
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Collect Show run from all routers
+      raw: "show run"
+
+      register: RUNCFG
+
+    - set_fact: time="{{lookup('pipe','date \"+%Y-%m-%d-%H-%M\"')}}"
+
+    - name: save output to a file
+      connection: local
+      copy:
+        content="\n ===show run=== \n {{ RUNCFG.stdout }}"
+        dest="./{{ inventory_hostname }}_run_cfg_{{ time }}.txt"
+
