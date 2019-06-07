@@ -2881,7 +2881,7 @@ cisco@ansible-controller:~$ vi ios-bgp/tasks/main.yml
 ---
 - name: Generate R1 IOS router iBGP config file
   template: src=IOS-BGP.j2 dest=./{{item.hostname}}-BGP.txt
-  with_items: "{{router_list}}"
+  loop: "{{router_list}}"
 ```
 
 #### Step-5: Create a main.yml file inside the ios-bgp/vars folder.
