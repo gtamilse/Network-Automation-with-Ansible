@@ -34,8 +34,8 @@
 	- [3.2 Device health monitoring](#32-device-health-monitoring)
 	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop-automation)
   - [3.4 Generate Structured data using TextFSM](#34-generate-structured-data-using-textFSM)
-	- [3.5 Generate Device Config](#35-generate-device-configuration)
-	- [3.6 Bulk Config Generation](#36-bulk-config-generation) 
+  - [3.5 Generate Device Config](#35-generate-device-configuration)
+  - [3.6 Bulk Config Generation](#36-bulk-config-generation) 
 - [4. Appendix](#4-appendix)
 	- [4.1 Ansible Vault](#41-ansible-vault)
 	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op23-cmdyml)
@@ -1635,7 +1635,7 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
         commands:
           - "{{item}}"
 
-      with_items:
+      loop:
           - show platform
           - show redundancy
           - show proc cpu | ex "0%      0%       0%"
@@ -1683,7 +1683,7 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
     - name: Route Summary Check
       debug:
         msg: " {{ item }}"
-      with_items:
+      loop:
         - " {{ inventory_hostname }} Route Summary: "
         - "{{ iosxr_mon.results[5].stdout_lines[0] }}"
 
@@ -2921,7 +2921,7 @@ cisco@ansible-controller:~$ vi xr-bgp/tasks/main.yml
 ---
 - name: Generate R2 XRV router iBGP config file
   template: src=XR-BGP.j2 dest=./{{item.hostname}}-BGP.txt
-  with_items: "{{router_list}}"
+  loop: "{{router_list}}"
 ```
 
 #### Step-8: Create a main.yml file inside the xr-bgp/vars folder.
@@ -3167,14 +3167,14 @@ $ vi config-gen/tasks/main.yml
   template:
      src=xr-config-template.j2
      dest=./{{item.hostname}}.txt
-  with_items:
+  loop:
      - "{{ xr_hostnames }}"
 
 - name: Generate the configuration for ios-routers
   template:
      src=ios-config-template.j2
      dest=./{{item.hostname}}.txt
-  with_items:
+  loop:
      - "{{ ios_hostnames }}"
 # tasks file for config-gen
 ```
