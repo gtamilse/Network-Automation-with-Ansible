@@ -33,9 +33,9 @@
 	- [3.1 Router config backup](#31-router-config-backup)
 	- [3.2 Device health monitoring](#32-device-health-monitoring)
 	- [3.3 Method of Procedure (MOP)](#33-method-of-procedure-mop-automation)
-	- [3.4 Generate Device Config](#34-generate-device-configuration)
-	- [3.5 Bulk Config Generation](#35-bulk-config-generation)
-  - [3.6 Generate Structured data using TextFSM](#36-generate-structured-data-using-textFSM)
+  - [3.4 Generate Structured data using TextFSM](#34-generate-structured-data-using-textFSM)
+	- [3.5 Generate Device Config](#35-generate-device-configuration)
+	- [3.6 Bulk Config Generation](#36-bulk-config-generation) 
 - [4. Appendix](#4-appendix)
 	- [4.1 Ansible Vault](#41-ansible-vault)
 	- [4.2 Optional exercise op23-cmd.yml](#42-optional-exercise-op23-cmdyml)
@@ -71,6 +71,7 @@ grep -v "#" /etc/ansible/ansible.cfg | grep -v ^$
 ```
 - Above command output shows an empty default config section, you will edit/uncomment the following settings, under [default] section:
   - inventory  = /etc/ansible/hosts
+  - library = /home/cisco/.ntc/
   - gathering = explicit
   - host_key_checking = False
   - timeout = 10
@@ -102,7 +103,7 @@ cisco@ansible-controller:~$ grep -v "^#" /etc/ansible/ansible.cfg | grep -v ^$
 
 [defaults]
 inventory      = /etc/ansible/hosts
-library        = /home/cisco/
+library        = /home/cisco/.ntc/
 gathering = explicit
 host_key_checking = False
 timeout = 10
@@ -193,9 +194,9 @@ inventory      = /etc/ansible/hosts
 cisco@ansible-controller:~$ grep -v "#" /etc/ansible/hosts | grep -v ^$
 
 [IOS]
-R1	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco
+R1	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=ios
 [XR]
-R2	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco
+R2	ansible_host=172.16.101.XY ansible_user=cisco ansible_ssh_pass=cisco ansible_network_os=iosxr
 [ALL:children]
 IOS
 XR
@@ -2418,8 +2419,366 @@ cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
 -rw-rw-r-- 1 cisco cisco  969 May 21 16:50 R2-OSPF-Precheck.txt
 
 ```
+---
 
-## 3.4 Generate Device Configuration
+## 3.4 Generate Structured data using TextFSM
+
+### Objective
+- Router's CLI command outputs are unstructured data that are hard to parse.
+- TextFSM python module allows us turn the unstructured CLI outputs into structured data.
+- Create a playbook to generate structured command output from standard/generic CLI command output.
+
+### Approach
+- This playbook uses an ansible module called ntc_show_command which in turn uses a Python module called TextFSM
+- Create a playbook to collect a show command output and use the ntc_show_command module to parse and print a structured output.
+
+
+### Lab exercise
+
+#### Step-1: Create a playbook to print structured output from the show interface brief commnad
+
+- Make sure to change the host IP address to match your R2 IOS-XRv IP address.
+
+```
+cisco@ansible-controller:~$ vi p34-ntc-xr-interfaces.yml 
+---
+- name: GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT
+  hosts: XR
+  connection: local
+  gather_facts: False
+  
+  tasks:
+    - name: Get Show Inteface Brief Data
+      ntc_show_command:
+        connection: ssh
+        platform: cisco_xr
+        template_dir: /home/cisco/.ntc/ntc-templates/templates
+        command: show interface brief
+        host: 172.16.101.XY
+        username: cisco
+        password: cisco
+
+      register:  mydata
+
+    - name: Print Show Inteface Brief Data
+      debug: var=mydata
+```
+
+#### Step-2: This playbook utilizes an existing ntc-ansible templace for the XR show interface brief command.
+
+- View the contents of the index file and ensure the cisco_xr_show_version.template is present. 
+- View the contents of the template file to gain an understanding of the regex match needed to extract the key data points.
+
+```
+cisco@ansible-controller:~$ more /home/cisco/.ntc/ntc-templates/templates/index | grep ^cisco_xr
+cisco_xr_show_controllers_HundredGigabitEthernet.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] Hu[[ndredGigabitEthernet]]
+cisco_xr_show_bgp_vrf_all_ipv4_unicast_summary.template, .*, cisco_xr, sh[[ow]] bg[[p]] v[[rf]] all ip[[v4]] uni[[cast]] summ[[ary]]
+cisco_xr_admin_show_controller_fabric_health.template, .*, cisco_xr, adm[[in]] sh[[ow]] controller fab[[ric]] hea[[lth]]
+cisco_xr_show_controller_fabric_plane_all.template, .*, cisco_xr, sh[[ow]] controller fab[[ric]] pla[[ne]] all
+cisco_xr_show_configuration_commit_list.template, .*, cisco_xr, sh[[ow]] conf[[iguration]] c[[ommit]] l[[ist]]
+cisco_xr_show_dhcp_ipv4_proxy_binding.template, .*, cisco_xr, sh[[ow]] dh[[cp]] ipv4 p[[roxy]] b[[inding]]
+cisco_xr_show_mpls_ldp_neighbor_brief.template, .*, cisco_xr, sh[[ow]] mp[[ls]] ld[[p]] neigh[[bor]] br[[ief]]
+cisco_xr_admin_show_environment_fan.template, .*, cisco_xr, adm[[in]] sh[[ow]] env[[ironment]] f[[an]]
+cisco_xr_show_cdp_neighbors_detail.template, .*, cisco_xr, sh[[ow]] c[[dp]] neig[[hbors]] det[[ail]]
+cisco_xr_show_redundancy_summary.template, .*, cisco_xr, sh[[ow]] redun[[dancy]] summ[[ary]]
+cisco_xr_show_interface_brief.template, .*, cisco_xr, sh[[ow]] int[[erface]] br[[ief]]
+cisco_xr_admin_show_platform.template, .*, cisco_xr, adm[[in]] sh[[ow]] pla[[tform]]
+cisco_xr_show_ip_bgp_summary.template, .*, cisco_xr, sh[[ow]] ip b[[gp]] s[[ummary]]
+cisco_xr_show_isis_neighbors.template, .*, cisco_xr, sh[[ow]] isis ne[[ighbors]]
+cisco_xr_show_lldp_neighbors.template, .*, cisco_xr, sh[[ow]] lld[[p]] neig[[hbors]]
+cisco_xr_show_rsvp_neighbors.template, .*, cisco_xr, sh[[ow]] rs[[vp]] neigh[[bors]]
+cisco_xr_show_ospf_neighbor.template, .*, cisco_xr, sh[[ow]] ospf nei[[ghbor]]
+cisco_xr_show_processes_cpu.template, .*, cisco_xr, sh[[ow]] proc[[esses]] c[[pu]]
+cisco_xr_show_bfd_sessions.template, .*, cisco_xr, sh[[ow]] bf[[d]] sess[[ions]]
+cisco_xr_show_pim_neighbor.template, .*, cisco_xr, sh[[ow]] pi[[m]] neigh[[bor]]
+cisco_xr_show_controllers.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] (\S+) phy
+cisco_xr_show_interfaces.template, .*, cisco_xr, sh[[ow]] inte[[rfaces]]
+cisco_xr_admin_show_vm.template, .*, cisco_xr, adm[[in]] sh[[ow]] vm
+cisco_xr_show_ip_route.template, .*, cisco_xr, sh[[ow]] ip ro[[ute]]
+cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
+
+cisco@ansible-controller:~$ more /home/cisco/.ntc/ntc-templates/templates/cisco_xr_show_interface_brief.template 
+Value INTERFACE ([\w+/]+)
+Value INTF_STATE (up|down|admin-down)
+Value LINEP_STATE (up|down|admin-down)
+Value ENCAP_TYPE (\S+)
+Value MTU (\d+)
+Value INT_BW (\d+)
+
+
+Start
+  ^\s+${INTERFACE}\s+${INTF_STATE}\s+${LINEP_STATE}\s+${ENCAP_TYPE}\s+${MTU}\s+${INT_BW} -> Record
+
+```
+
+#### Step-3: Execute the playbook p36-ntc-xr-interfaces.yml
+
+```
+cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml --syntax-check
+
+cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml 
+```
+
+#### Step-4: Create a new playbook to print structured output from the "show vesion brief" command
+
+- This time you will create a custom template to match against a CLI output that does not preexist in the ntc module templates list.
+
+```
+cisco@ansible-controller:~$  vi p34-ntc-xr-version-check.yml
+
+---
+- name: GET STRUCTURED DATA BACK FROM CLI DEVICES
+  hosts: XR
+  connection: local
+  gather_facts: False
+  
+  tasks:
+    - name: GET SHOW VERSION DATA
+      ntc_show_command:
+        connection: ssh
+        platform: cisco_xr
+        template_dir: /home/cisco/.ntc/ntc-templates/templates
+        command: show version brief
+        host: 172.16.101.XY
+        username: cisco
+        password: cisco
+
+      register:  mydata
+
+    - name: FULL show version output
+      debug: var=mydata
+
+    - name: PRINT Software Image file location
+      debug: msg="Software Image file location is {{ mydata.response[0].imgloc}}"
+
+    - name: PRINT  IOS-XR SW Version
+      debug: msg="IOS-XR SW Version is {{ mydata.response[0].version}}"
+
+    - name: PRINT DEVICE Uptime
+      debug: msg="Device Uptime is {{ mydata.response[0].uptime}}"
+
+```
+
+#### Step-5: Create a template file that will extract the key data points from the XR show version brief command output.
+
+- There are 3 key values to gather from the show version brief output: Software Version #, Router uptime, and Software Image Location.
+- Sudo password = cisco
+
+```
+cisco@ansible-controller:~$ sudo vi /home/cisco/.ntc/ntc-templates/templates/cisco_xr_show_version_brief.template
+
+Value Version ((.*))
+Value UPTIME ((.*))
+Value IMGloc ((.*))
+
+Start
+  ^.+UTC
+  ^Cisco IOS XR Software, Version ${Version} 
+  ^Copyright\s\(c\).+
+  ^ROM: GRUB, Version(.*) 
+  ^.*uptime is ${UPTIME} 
+  ^System image file is ${IMGloc} -> Record
+
+```
+
+- Sample show version brief output from R2-XRv router.
+
+```
+RP/0/0/CPU0:R2-XRv#show version brief 
+Tue May 21 21:22:49.613 UTC
+
+Cisco IOS XR Software, Version 6.2.2.15I[Default]
+Copyright (c) 2017 by Cisco Systems, Inc.
+
+ROM: GRUB, Version 1.99(0), DEV RELEASE
+
+R2-XRv uptime is 4 days, 3 hours, 29 minutes
+System image file is "bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm"
+
+cisco IOS XRv Series (Pentium Celeron Stepping 3) processor with 3145215K bytes of memory.
+Pentium Celeron Stepping 3 processor at 2495MHz, Revision 2.174
+IOS XRv Chassis
+
+1 Management Ethernet
+1 GigabitEthernet
+97070k bytes of non-volatile configuration memory.
+866M bytes of hard disk.
+2321392k bytes of disk0: (Sector size 512 bytes).
+```
+
+#### Step-6: Edit the templates/index file with an entry mapping the template to the host, platform and cli command.
+
+- Sudo password = cisco
+- Scroll down to cisco_xr section and insert the index above the cisco_xr_show_version line.
+
+```
+cisco@ansible-controller:~$ sudo vi /home/cisco/.ntc/ntc-templates/templates/index
+
+cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
+
+```
+
+```
+cisco@ansible-controller:~$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr_show_ver
+
+cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] br[[ief]]
+cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
+```
+
+#### Step-7: Execute the playbook p34-ntc-xr-version-check.yml
+
+```
+cisco@ansible-controller:~$  ansible-playbook p34-ntc-xr-version-check.yml  --syntax-check
+
+cisco@ansible-controller:~$  ansible-playbook p34-ntc-xr-version-check.yml 
+```
+
+### Reference
+
+- ntc-ansible Github repo: https://github.com/networktocode/ntc-ansible
+- ntc_show module: https://ntc-docs.readthedocs.io/en/latest/ntc-ansible%20Modules%20(multi-vendor)/ntc_show_command_module.html
+- textFSM module Github repo: https://github.com/google/textfsm
+
+### Example Output
+
+```
+cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml --syntax-check
+
+playbook: p36-ntc-xr-interfaces.yml
+
+cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml 
+
+PLAY [GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT] ***************************************************************************************************************************************
+
+TASK [Get Show Inteface Brief Data] ***********************************************************************************************************************************************************
+ok: [R2]
+
+TASK [Print Show Inteface Brief Data] ********************************************************************************************************************************************************
+ok: [R2] => {
+    "mydata": {
+        "ansible_facts": {
+            "discovered_interpreter_python": "/usr/bin/python"
+        }, 
+        "changed": false, 
+        "deprecations": [
+            {
+                "msg": "Distribution Ubuntu 18.04 on host R2 should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information", 
+                "version": "2.12"
+            }
+        ], 
+        "failed": false, 
+        "response": [
+            {
+                "encap_type": "Loopback", 
+                "int_bw": "0", 
+                "interface": "Lo0", 
+                "intf_state": "up", 
+                "linep_state": "up", 
+                "mtu": "1500"
+            }, 
+            {
+                "encap_type": "Null", 
+                "int_bw": "0", 
+                "interface": "Nu0", 
+                "intf_state": "up", 
+                "linep_state": "up", 
+                "mtu": "1500"
+            }, 
+            {
+                "encap_type": "ARPA", 
+                "int_bw": "1000000", 
+                "interface": "Mg0/0/CPU0/0", 
+                "intf_state": "up", 
+                "linep_state": "up", 
+                "mtu": "1514"
+            }, 
+            {
+                "encap_type": "ARPA", 
+                "int_bw": "1000000", 
+                "interface": "Gi0/0/0/0", 
+                "intf_state": "up", 
+                "linep_state": "up", 
+                "mtu": "1514"
+            }
+        ], 
+        "response_list": [], 
+        "warnings": [
+            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change.", 
+            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change."
+        ]
+    }
+}
+
+PLAY RECAP *****************************************************************************************************************************************************************************
+R2                         : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+```
+
+
+```
+cisco@ansible-controller:~/LTRPRG-1500$ ansible-playbook p34-ntc-xr-version-check.yml  --syntax-check
+
+playbook: p36-ntc-xr-version-check.yml
+
+cisco@ansible-controller:~/LTRPRG-1500$ ansible-playbook p34-ntc-xr-version-check.yml 
+
+PLAY [GET STRUCTURED DATA FOR SHOW VERSION BRIEF OUTPUT] *******************************************************************************************************************************
+
+TASK [Get Show Version Brief Data] *****************************************************************************************************************************************************
+ok: [R2]
+
+TASK [Print Show version Brief Data] ***************************************************************************************************************************************************
+ok: [R2] => {
+    "mydata": {
+        "ansible_facts": {
+            "discovered_interpreter_python": "/usr/bin/python"
+        }, 
+        "changed": false, 
+        "deprecations": [
+            {
+                "msg": "Distribution Ubuntu 18.04 on host R2 should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information", 
+                "version": "2.12"
+            }
+        ], 
+        "failed": false, 
+        "response": [
+            {
+                "imgloc": "\"bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm\"", 
+                "uptime": "4 days, 4 hours, 20 minutes", 
+                "version": "6.2.2.15I[Default]"
+            }
+        ], 
+        "response_list": [], 
+        "warnings": [
+            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change.", 
+            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change."
+        ]
+    }
+}
+
+TASK [Print Software Image file location] **********************************************************************************************************************************************
+ok: [R2] => {
+    "msg": "Software Image file location is \"bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm\""
+}
+
+TASK [Print IOS-XR SW Version] *********************************************************************************************************************************************************
+ok: [R2] => {
+    "msg": "IOS-XR SW Version is 6.2.2.15I[Default]"
+}
+
+TASK [Print DEVICE Uptime] *************************************************************************************************************************************************************
+ok: [R2] => {
+    "msg": "Device Uptime is 4 days, 4 hours, 20 minutes"
+}
+
+PLAY RECAP *****************************************************************************************************************************************************************************
+R2                         : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+```
+
+---
+
+## 3.5 Generate Device Configuration
 
 ### Objectives
 
@@ -2749,7 +3108,7 @@ Shared connection to 172.16.101.64 closed.
 ```
 ---
 
-## 3.5 Bulk Config Generation
+## 3.6 Bulk Config Generation
 
 ### Objective
 - By Leveraging Ansible Roles and templates, users can build bulk configurations for deployment at scale.
@@ -3172,362 +3531,6 @@ cisco@ansible-controller:~$
 
 ---
 
-## 3.6 Generate Structured data using TextFSM
-
-### Objective
-- Router's CLI command outputs are unstructured data that are hard to parse.
-- TextFSM python module allows us turn the unstructured CLI outputs into structured data.
-- Create a playbook to generate structured command output from standard/generic CLI command output.
-
-### Approach
-- This playbook uses an ansible module caled ntc_show which in turn uses a Python module called textfsm
-- Create a playbook to collect show command output and use the ntc_show module to parse and print a structured output.
-
-
-### Lab exercise
-
-#### Step-1: Create a playbook to print structured output from the show interface brief commnad
-
-- Make sure to change the host IP address to match your R2-XRv IP address.
-
-```
-cisco@ansible-controller:~$ vi p36-ntc-xr-interfaces.yml 
----
-- name: GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT
-  hosts: XR
-  connection: local
-  gather_facts: False
-  
-  tasks:
-    - name: Get Show Inteface Brief Data
-      ntc_show_command:
-        connection: ssh
-        platform: cisco_xr
-        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
-        command: show interface brief
-        host: 172.16.101.64
-        username: cisco
-        password: cisco
-
-      register:  mydata
-
-    - name: Print Show Inteface Brief Data
-      debug: var=mydata
-```
-
-#### Step-2: This playbook utilizes an existing ntc-ansible templace for the XR show interface brief command.
-
-- View the contents of the index file and ensure the cisco_xr_show_version.template is present. 
-- View the contents of the template file to gain an understanding of the regex match needed to extract the key data points.
-
-```
-cisco@ansible-controller:~/LTRPRG-1500$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr
-
-cisco_xr_show_controllers_HundredGigabitEthernet.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] Hu[[ndredGigabitEthernet]]
-cisco_xr_show_bgp_vrf_all_ipv4_unicast_summary.template, .*, cisco_xr, sh[[ow]] bg[[p]] v[[rf]] all ip[[v4]] uni[[cast]] summ[[ary]]
-cisco_xr_admin_show_controller_fabric_health.template, .*, cisco_xr, adm[[in]] sh[[ow]] controller fab[[ric]] hea[[lth]]
-cisco_xr_show_controller_fabric_plane_all.template, .*, cisco_xr, sh[[ow]] controller fab[[ric]] pla[[ne]] all
-cisco_xr_show_configuration_commit_list.template, .*, cisco_xr, sh[[ow]] conf[[iguration]] c[[ommit]] l[[ist]]
-cisco_xr_show_dhcp_ipv4_proxy_binding.template, .*, cisco_xr, sh[[ow]] dh[[cp]] ipv4 p[[roxy]] b[[inding]]
-cisco_xr_show_mpls_ldp_neighbor_brief.template, .*, cisco_xr, sh[[ow]] mp[[ls]] ld[[p]] neigh[[bor]] br[[ief]]
-cisco_xr_admin_show_environment_fan.template, .*, cisco_xr, adm[[in]] sh[[ow]] env[[ironment]] f[[an]]
-cisco_xr_show_cdp_neighbors_detail.template, .*, cisco_xr, sh[[ow]] c[[dp]] neig[[hbors]] det[[ail]]
-cisco_xr_show_redundancy_summary.template, .*, cisco_xr, sh[[ow]] redun[[dancy]] summ[[ary]]
-cisco_xr_show_interface_brief.template, .*, cisco_xr, sh[[ow]] int[[erface]] br[[ief]]
-cisco_xr_admin_show_platform.template, .*, cisco_xr, adm[[in]] sh[[ow]] pla[[tform]]
-cisco_xr_show_ip_bgp_summary.template, .*, cisco_xr, sh[[ow]] ip b[[gp]] s[[ummary]]
-cisco_xr_show_isis_neighbors.template, .*, cisco_xr, sh[[ow]] isis ne[[ighbors]]
-cisco_xr_show_lldp_neighbors.template, .*, cisco_xr, sh[[ow]] lld[[p]] neig[[hbors]]
-cisco_xr_show_rsvp_neighbors.template, .*, cisco_xr, sh[[ow]] rs[[vp]] neigh[[bors]]
-cisco_xr_show_ospf_neighbor.template, .*, cisco_xr, sh[[ow]] ospf nei[[ghbor]]
-cisco_xr_show_processes_cpu.template, .*, cisco_xr, sh[[ow]] proc[[esses]] c[[pu]]
-cisco_xr_show_bfd_sessions.template, .*, cisco_xr, sh[[ow]] bf[[d]] sess[[ions]]
-cisco_xr_show_pim_neighbor.template, .*, cisco_xr, sh[[ow]] pi[[m]] neigh[[bor]]
-cisco_xr_show_controllers.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] (\S+) phy
-cisco_xr_show_interfaces.template, .*, cisco_xr, sh[[ow]] inte[[rfaces]]
-cisco_xr_admin_show_vm.template, .*, cisco_xr, adm[[in]] sh[[ow]] vm
-cisco_xr_show_ip_route.template, .*, cisco_xr, sh[[ow]] ip ro[[ute]]
-cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
-
-cisco@ansible-controller:~$ more /home/cisco/ntc-ansible/ntc-templates/templates/cisco_xr_show_interface_brief.template 
-Value INTERFACE ([\w+/]+)
-Value INTF_STATE (up|down|admin-down)
-Value LINEP_STATE (up|down|admin-down)
-Value ENCAP_TYPE (\S+)
-Value MTU (\d+)
-Value INT_BW (\d+)
-
-
-Start
-  ^\s+${INTERFACE}\s+${INTF_STATE}\s+${LINEP_STATE}\s+${ENCAP_TYPE}\s+${MTU}\s+${INT_BW} -> Record
-
-```
-
-#### Step-3: Execute the playbook p36-ntc-xr-interfaces.yml
-
-```
-cisco@ansible-controller:~$ ansible-playbook p36-ntc-xr-interfaces.yml --syntax-check
-
-cisco@ansible-controller:~$ ansible-playbook p36-ntc-xr-interfaces.yml 
-```
-
-#### Step-4: Create a new playbook to print structured output from show vesion brief command
-
-- This time you will create a custom template to match against a CLI output that does not preexists in the ntc module templates list.
-
-```
-cisco@ansible-controller:~$  vi p36-ntc-xr-version-check.yml
-
----
-- name: GET STRUCTURED DATA BACK FROM CLI DEVICES
-  hosts: XR
-  connection: local
-  gather_facts: False
-  
-  tasks:
-    - name: GET SHOW VERSION DATA
-      ntc_show_command:
-        connection: ssh
-        platform: cisco_xr
-        template_dir: /home/cisco/ntc-ansible/ntc-templates/templates
-        #use_templates: True 
-        command: show version brief
-        host: 172.16.101.64
-        username: cisco
-        password: cisco
-
-      register:  mydata
-
-    - name: FULL show version output
-      debug: var=mydata
-
-    - name: PRINT Software Image file location
-      debug: msg="Software Image file location is {{ mydata.response[0].imgloc}}"
-
-    - name: PRINT  IOS-XR SW Version
-      debug: msg="IOS-XR SW Version is {{ mydata.response[0].version}}"
-
-    - name: PRINT DEVICE Uptime
-      debug: msg="Device Uptime is {{ mydata.response[0].uptime}}"
-
-```
-
-#### Step-5: Create a template file that will extract the key data points from the XR show version brief command output.
-
-- There are 3 key vales to gather from the show version brief output: Software Version #, Router uptime, and Software Image Location.
-
-```
-cisco@ansible-controller:~$ vi /home/cisco/ntc-ansible/ntc-templates/templates/cisco_xr_show_version_brief.template
-
-Value Version ((.*))
-Value UPTIME ((.*))
-Value IMGloc ((.*))
-
-Start
-  ^.+UTC
-  ^Cisco IOS XR Software, Version ${Version} 
-  ^Copyright\s\(c\).+
-  ^ROM: GRUB, Version(.*) 
-  ^.*uptime is ${UPTIME} 
-  ^System image file is ${IMGloc} -> Record
-
-```
-
-- Sample show version brief output from R2-XRv router.
-
-```
-RP/0/0/CPU0:R2-XRv#show version brief 
-Tue May 21 21:22:49.613 UTC
-
-Cisco IOS XR Software, Version 6.2.2.15I[Default]
-Copyright (c) 2017 by Cisco Systems, Inc.
-
-ROM: GRUB, Version 1.99(0), DEV RELEASE
-
-R2-XRv uptime is 4 days, 3 hours, 29 minutes
-System image file is "bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm"
-
-cisco IOS XRv Series (Pentium Celeron Stepping 3) processor with 3145215K bytes of memory.
-Pentium Celeron Stepping 3 processor at 2495MHz, Revision 2.174
-IOS XRv Chassis
-
-1 Management Ethernet
-1 GigabitEthernet
-97070k bytes of non-volatile configuration memory.
-866M bytes of hard disk.
-2321392k bytes of disk0: (Sector size 512 bytes).
-```
-
-#### Step-6: Edit the templates/index file with an entry mapping the template to the host, platform and cli command.
-
-```
-cisco@ansible-controller:~$ vi /home/cisco/ntc-ansible/ntc-templates/templates/index
-
-cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
-
-```
-
-- Scroll down to cisco_xr section and insert the index above the cisco_xr_show_version line.
-
-```
-cisco@ansible-controller:~$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr_show_ver
-
-cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] br[[ief]]
-cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
-```
-
-#### Step-7: Execute the playbook p36-ntc-xr-version-check.yml
-
-```
-cisco@ansible-controller:~$  ansible-playbook p36-ntc-xr-version-check.yml  --syntax-check
-
-cisco@ansible-controller:~$  ansible-playbook p36-ntc-xr-version-check.yml 
-```
-
-### Reference
-
-- ntc-ansible Github repo: https://github.com/networktocode/ntc-ansible
-- ntc_show module: https://ntc-docs.readthedocs.io/en/latest/ntc-ansible%20Modules%20(multi-vendor)/ntc_show_command_module.html
-- textFSM module Github repo: https://github.com/google/textfsm
-
-### Example Output
-
-```
-cisco@ansible-controller:~$ ansible-playbook p36-ntc-xr-interfaces.yml --syntax-check
-
-playbook: p36-ntc-xr-interfaces.yml
-
-cisco@ansible-controller:~$ ansible-playbook p36-ntc-xr-interfaces.yml 
-
-PLAY [GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT] ***************************************************************************************************************************************
-
-TASK [Get Show Inteface Brief Data] ***********************************************************************************************************************************************************
-ok: [R2]
-
-TASK [Print Show Inteface Brief Data] ********************************************************************************************************************************************************
-ok: [R2] => {
-    "mydata": {
-        "ansible_facts": {
-            "discovered_interpreter_python": "/usr/bin/python"
-        }, 
-        "changed": false, 
-        "deprecations": [
-            {
-                "msg": "Distribution Ubuntu 18.04 on host R2 should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information", 
-                "version": "2.12"
-            }
-        ], 
-        "failed": false, 
-        "response": [
-            {
-                "encap_type": "Loopback", 
-                "int_bw": "0", 
-                "interface": "Lo0", 
-                "intf_state": "up", 
-                "linep_state": "up", 
-                "mtu": "1500"
-            }, 
-            {
-                "encap_type": "Null", 
-                "int_bw": "0", 
-                "interface": "Nu0", 
-                "intf_state": "up", 
-                "linep_state": "up", 
-                "mtu": "1500"
-            }, 
-            {
-                "encap_type": "ARPA", 
-                "int_bw": "1000000", 
-                "interface": "Mg0/0/CPU0/0", 
-                "intf_state": "up", 
-                "linep_state": "up", 
-                "mtu": "1514"
-            }, 
-            {
-                "encap_type": "ARPA", 
-                "int_bw": "1000000", 
-                "interface": "Gi0/0/0/0", 
-                "intf_state": "up", 
-                "linep_state": "up", 
-                "mtu": "1514"
-            }
-        ], 
-        "response_list": [], 
-        "warnings": [
-            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change.", 
-            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change."
-        ]
-    }
-}
-
-PLAY RECAP *****************************************************************************************************************************************************************************
-R2                         : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-
-```
-
-
-```
-cisco@ansible-controller:~/LTRPRG-1500$ ansible-playbook p36-ntc-xr-version-check.yml  --syntax-check
-
-playbook: p36-ntc-xr-version-check.yml
-
-cisco@ansible-controller:~/LTRPRG-1500$ ansible-playbook p36-ntc-xr-version-check.yml 
-
-PLAY [GET STRUCTURED DATA FOR SHOW VERSION BRIEF OUTPUT] *******************************************************************************************************************************
-
-TASK [Get Show Version Brief Data] *****************************************************************************************************************************************************
-ok: [R2]
-
-TASK [Print Show version Brief Data] ***************************************************************************************************************************************************
-ok: [R2] => {
-    "mydata": {
-        "ansible_facts": {
-            "discovered_interpreter_python": "/usr/bin/python"
-        }, 
-        "changed": false, 
-        "deprecations": [
-            {
-                "msg": "Distribution Ubuntu 18.04 on host R2 should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information", 
-                "version": "2.12"
-            }
-        ], 
-        "failed": false, 
-        "response": [
-            {
-                "imgloc": "\"bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm\"", 
-                "uptime": "4 days, 4 hours, 20 minutes", 
-                "version": "6.2.2.15I[Default]"
-            }
-        ], 
-        "response_list": [], 
-        "warnings": [
-            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change.", 
-            "The value 1 (type int) in a string field was converted to u'1' (type string). If this does not look like what you expect, quote the entire value to ensure it does not change."
-        ]
-    }
-}
-
-TASK [Print Software Image file location] **********************************************************************************************************************************************
-ok: [R2] => {
-    "msg": "Software Image file location is \"bootflash:disk0/xrvr-os-mbi-6.2.2.15I/mbixrvr-rp.vm\""
-}
-
-TASK [Print IOS-XR SW Version] *********************************************************************************************************************************************************
-ok: [R2] => {
-    "msg": "IOS-XR SW Version is 6.2.2.15I[Default]"
-}
-
-TASK [Print DEVICE Uptime] *************************************************************************************************************************************************************
-ok: [R2] => {
-    "msg": "Device Uptime is 4 days, 4 hours, 20 minutes"
-}
-
-PLAY RECAP *****************************************************************************************************************************************************************************
-R2                         : ok=5    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
-
-```
-
----
 # 4. Appendix
 
 
