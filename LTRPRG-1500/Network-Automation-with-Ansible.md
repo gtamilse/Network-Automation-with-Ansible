@@ -42,8 +42,9 @@
 	- [4.3 Optional exercise op28-conditionals.yml](#43-optional-exercise-op28-conditionalsyml)
 	- [4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)](#44-optional-exercise-op31-runcfg-bkupyml-router-config-backup)
 	- [4.5 Optional exercise op33-mop.yml (MOP)](#45-optional-exercise-op33-mopyml-mop)
-	- [4.6 Ansible installation](#46-ansible-installation)
-	- [4.7 Reference](#47-reference)
+  - [4.6 Optional exercise op341-ios-parse-cli.yml](#46-optional-exercise-op341-ios-parse-cliyml)
+	- [4.7 Ansible installation](#46-ansible-installation)
+	- [4.8 Reference](#47-reference)
 
 ---
 
@@ -2464,9 +2465,9 @@ cisco@ansible-controller:~$ vi p34-ntc-xr-interfaces.yml
       debug: var=mydata
 ```
 
-#### Step-2: This playbook utilizes an existing ntc-ansible templace for the XR show interface brief command.
+#### Step-2: This playbook utilizes an existing ntc-ansible template for the XR show interface brief command.
 
-- View the contents of the index file and ensure the cisco_xr_show_version.template is present. 
+- View the contents of the index file and ensure the cisco_xr_show_interface_brief.template is present. 
 - View the contents of the template file to gain an understanding of the regex match needed to extract the key data points.
 
 ```
@@ -2511,7 +2512,7 @@ Start
 
 ```
 
-#### Step-3: Execute the playbook p36-ntc-xr-interfaces.yml
+#### Step-3: Execute the playbook p34-ntc-xr-interfaces.yml
 
 ```
 cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml --syntax-check
@@ -2519,9 +2520,9 @@ cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml --syntax-
 cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml 
 ```
 
-#### Step-4: Create a new playbook to print structured output from the "show vesion brief" command
+#### Step-4: Create a new playbook to print structured output from the "show version brief" command
 
-- This time you will create a custom template to match against a CLI output that does not preexist in the ntc module templates list.
+- This time you will create a custom template to match against a CLI output that is not included in the default ntc-ansible templates list.
 
 ```
 cisco@ansible-controller:~$  vi p34-ntc-xr-version-check.yml
@@ -2619,7 +2620,7 @@ cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
 ```
 
 ```
-cisco@ansible-controller:~$ more /home/cisco/ntc-ansible/ntc-templates/templates/index | grep ^cisco_xr_show_ver
+cisco@ansible-controller:~$ more //home/cisco/.ntc/ntc-templates/templates/index | grep ^cisco_xr_show_ver
 
 cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] br[[ief]]
 cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
@@ -2633,18 +2634,33 @@ cisco@ansible-controller:~$  ansible-playbook p34-ntc-xr-version-check.yml  --sy
 cisco@ansible-controller:~$  ansible-playbook p34-ntc-xr-version-check.yml 
 ```
 
+### Conclusion
+- Convert human readable CLI output to machine readable structured data using TextFSM.
+- Review the section and discuss if you have any questions.
+
+### Optional exercise
+
+- Exercise 3.4.1 - Use the "parse_cli_textfsm" network filter to print structured data output for the show interface brief command.  
+    - The network filters support parsing the output of a CLI command using the TextFSM library. 
+    - Use of the TextFSM filter requires the TextFSM python package/library {pre-install on the controller}
+    - To parse the CLI output with TextFSM use the following filter: "{{ output.stdout[0] | parse_cli_textfsm('path/to/fsm') }}"
+
+- Exercise 3.4.2 - Create a playbook to extract specific data from the structured output
+
 ### Reference
 
 - ntc-ansible Github repo: https://github.com/networktocode/ntc-ansible
 - ntc_show module: https://ntc-docs.readthedocs.io/en/latest/ntc-ansible%20Modules%20(multi-vendor)/ntc_show_command_module.html
 - textFSM module Github repo: https://github.com/google/textfsm
+- Network Filter support: https://docs.ansible.com/ansible/latest/user_guide/playbooks_filters.html#network-cli-filters
+
 
 ### Example Output
 
 ```
 cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml --syntax-check
 
-playbook: p36-ntc-xr-interfaces.yml
+playbook: p34-ntc-xr-interfaces.yml
 
 cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml 
 
@@ -4212,9 +4228,141 @@ cisco@ansible-controller:~$ ls -l op33*.txt
 -rw-rw-r-- 1 cisco cisco 489 May 21 16:57 op33-xr_diff_2019-05-21-16-57.txt
 
 ```
-
 ---
-## 4.6 Ansible installation
+## 4.6 Optional exercise op341-ios-parse-cli.yml
+
+### Objective
+- Use ansible network filters to parse the output of a CLI command using the TextFSM Library.
+  - Create a playbook that collects the "show ip int brief" output from R1 IOS router and prints the output in a structured way.
+  - To parse the CLI output with TextFSM use the following filter: "{{ output.stdout[0] | parse_cli_textfsm('path/to/fsm') }}"
+
+### Lab exercise
+- Create playbook, op341-ios-parse-cli.yml, to print structured output from the "show ip int brief" IOS command.
+- Utilize the "parse_cli_textfsm" filter
+
+```
+cisco@ansible-controller:~$ vi op341-ios-parse-cli.yml
+---
+- name: Get Structured Data Back From Devices Using PARSE_CLI_TEXTFSM Network Filter
+  hosts: IOS
+  connection: network_cli
+  gather_facts: False
+
+  tasks:
+
+    - name: Collect show ipv4 int brief info from an IOS router.
+      ios_command:
+        commands:
+          - show ip int brief
+      register: int_bri
+
+    - set_fact:
+        struct_show_ip_int_bri: "{{ int_bri.stdout[0] | parse_cli_textfsm('/home/cisco/.ntc/ntc-templates/templates/cisco_ios_show_ip_int_brief.template') }}"
+
+    - name: Print default show ip int brief command output
+      debug: var=int_bri
+
+    - name: Print the structured output of show ip int brief
+      debug: var=struct_show_ip_int_bri
+
+    - name: Print first interface info from an IOS router in a structured output format
+      debug: msg={{struct_show_ip_int_bri[0]}}
+
+    - name: Print individual elements of the interface from the extracted structured output
+      debug: msg="Interface Name is {{struct_show_ip_int_bri[1].INTF}}, Interface Address is {{struct_show_ip_int_bri[1].IPADDR}}, Protocol Status is {{struct_show_ip_int_bri[1].PROTO}}, Interface Status is {{struct_show_ip_int_bri[1].STATUS}}"
+
+```
+
+### Example output
+
+```
+cisco@ansible-controller:~$ ansible-playbook op341-ios-parse-cli.yml --syntax-check
+
+playbook: op341-ios-parse-cli.yml
+
+cisco@ansible-controller:~$ ansible-playbook op341-ios-parse-cli.yml 
+
+PLAY [Get Structured Data Back From Devices Using PARSE_CLI_TEXTFSM Network Filter] ******************************************************************************************************************************************************
+
+TASK [Collect show ipv4 int brief info from an IOS router.] ******************************************************************************************************************************************************************************
+ok: [R1]
+
+TASK [set_fact] **************************************************************************************************************************************************************************************************************************
+ok: [R1]
+
+TASK [Print default show ip int brief command output] ************************************************************************************************************************************************************************************
+ok: [R1] => {
+    "int_bri": {
+        "ansible_facts": {
+            "discovered_interpreter_python": "/usr/bin/python"
+        }, 
+        "changed": false, 
+        "deprecations": [
+            {
+                "msg": "Distribution Ubuntu 18.04 on host R1 should use /usr/bin/python3, but is using /usr/bin/python for backward compatibility with prior Ansible releases. A future Ansible release will default to using the discovered platform python for this host. See https://docs.ansible.com/ansible/2.8/reference_appendices/interpreter_discovery.html for more information", 
+                "version": "2.12"
+            }
+        ], 
+        "failed": false, 
+        "stdout": [
+            "Interface              IP-Address      OK? Method Status                Protocol\nGigabitEthernet1       172.16.101.19   YES TFTP   up                    up      \nGigabitEthernet2       10.0.0.5        YES TFTP   up                    up      \nLoopback0              192.168.0.1     YES TFTP   up                    up"
+        ], 
+        "stdout_lines": [
+            [
+                "Interface              IP-Address      OK? Method Status                Protocol", 
+                "GigabitEthernet1       172.16.101.19   YES TFTP   up                    up      ", 
+                "GigabitEthernet2       10.0.0.5        YES TFTP   up                    up      ", 
+                "Loopback0              192.168.0.1     YES TFTP   up                    up"
+            ]
+        ]
+    }
+}
+
+TASK [Print the structured output of show ip int brief] **********************************************************************************************************************************************************************************
+ok: [R1] => {
+    "struct_show_ip_int_bri": [
+        {
+            "INTF": "GigabitEthernet1", 
+            "IPADDR": "172.16.101.19", 
+            "PROTO": "up", 
+            "STATUS": "up"
+        }, 
+        {
+            "INTF": "GigabitEthernet2", 
+            "IPADDR": "10.0.0.5", 
+            "PROTO": "up", 
+            "STATUS": "up"
+        }, 
+        {
+            "INTF": "Loopback0", 
+            "IPADDR": "192.168.0.1", 
+            "PROTO": "up", 
+            "STATUS": "up"
+        }
+    ]
+}
+
+TASK [Print first interface info from an IOS router in a structured output format] *******************************************************************************************************************************************************
+ok: [R1] => {
+    "msg": {
+        "INTF": "GigabitEthernet1", 
+        "IPADDR": "172.16.101.19", 
+        "PROTO": "up", 
+        "STATUS": "up"
+    }
+}
+
+TASK [Print individual elements of second interface from the extracted structured output] ************************************************************************************************************************************************
+ok: [R1] => {
+    "msg": "Interface Name is GigabitEthernet2, Interface Address is 10.0.0.5, Protocol Status is up, Interface Status is up"
+}
+
+PLAY RECAP *******************************************************************************************************************************************************************************************************************************
+R1                         : ok=6    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+
+```
+---
+## 4.7 Ansible installation
 - Ansible control machine is on Linux based systems with Python 2 (versions 2.6 or higher) or Python 3 (versions 3.5 or higher).
 - Red Hat, Debian, CentOS, OS X (MAC OS), Ubuntu, BSDs etc. are supported. MS Windows OS is not supported.
 - Installation steps are straight forward. Depending on your OS flavor, pick the steps from the installation guide.
@@ -4244,7 +4392,7 @@ $ sudo apt-get install ansible
 
 ---
 
-## 4.7 Reference
+## 4.8 Reference
 - Ansible Documentation: http://docs.ansible.com/ansible/latest/index.html
 - YAML Version 1.2 Specs: http://www.yaml.org/spec/1.2/spec.html
 - Jinjia2 Templating: http://jinja.pocoo.org/docs/dev/templates/
