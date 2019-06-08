@@ -43,8 +43,8 @@
 	- [4.4 Optional exercise op31-runcfg-bkup.yml (Router Config Backup)](#44-optional-exercise-op31-runcfg-bkupyml-router-config-backup)
 	- [4.5 Optional exercise op33-mop.yml (MOP)](#45-optional-exercise-op33-mopyml-mop)
   - [4.6 Optional exercise op341-ios-parse-cli.yml](#46-optional-exercise-op341-ios-parse-cliyml)
-	- [4.7 Ansible installation](#46-ansible-installation)
-	- [4.8 Reference](#47-reference)
+  - [4.7 Ansible installation](#46-ansible-installation)
+  - [4.8 Reference](#47-reference)
 
 ---
 
@@ -2639,13 +2639,12 @@ cisco@ansible-controller:~$  ansible-playbook p34-ntc-xr-version-check.yml
 - Review the section and discuss if you have any questions.
 
 ### Optional exercise
-
-- Exercise 3.4.1 - Use the "parse_cli_textfsm" network filter to print structured data output for the show interface brief command.  
+- Alternate to using the show_ntc_command, Ansible provides network filters that can turn CLI data into structured data.
+- In optional exercise 34 - Use the "parse_cli_textfsm" network filter to print structured data output for the show interface brief command.  
     - The network filters support parsing the output of a CLI command using the TextFSM library. 
     - Use of the TextFSM filter requires the TextFSM python package/library {pre-install on the controller}
     - To parse the CLI output with TextFSM use the following filter: "{{ output.stdout[0] | parse_cli_textfsm('path/to/fsm') }}"
-
-- Exercise 3.4.2 - Create a playbook to extract specific data from the structured output
+    - Create a playbook called op34-ios-parse-cli.yml to complete this exercise
 
 ### Reference
 
@@ -4229,7 +4228,7 @@ cisco@ansible-controller:~$ ls -l op33*.txt
 
 ```
 ---
-## 4.6 Optional exercise op341-ios-parse-cli.yml
+## 4.6 Optional exercise op34-ios-parse-cli.yml
 
 ### Objective
 - Use ansible network filters to parse the output of a CLI command using the TextFSM Library.
@@ -4241,7 +4240,7 @@ cisco@ansible-controller:~$ ls -l op33*.txt
 - Utilize the "parse_cli_textfsm" filter
 
 ```
-cisco@ansible-controller:~$ vi op341-ios-parse-cli.yml
+cisco@ansible-controller:~$ vi op34-ios-parse-cli.yml
 ---
 - name: Get Structured Data Back From Devices Using PARSE_CLI_TEXTFSM Network Filter
   hosts: IOS
@@ -4276,11 +4275,11 @@ cisco@ansible-controller:~$ vi op341-ios-parse-cli.yml
 ### Example output
 
 ```
-cisco@ansible-controller:~$ ansible-playbook op341-ios-parse-cli.yml --syntax-check
+cisco@ansible-controller:~$ ansible-playbook op34-ios-parse-cli.yml --syntax-check
 
-playbook: op341-ios-parse-cli.yml
+playbook: op34-ios-parse-cli.yml
 
-cisco@ansible-controller:~$ ansible-playbook op341-ios-parse-cli.yml 
+cisco@ansible-controller:~$ ansible-playbook op34-ios-parse-cli.yml 
 
 PLAY [Get Structured Data Back From Devices Using PARSE_CLI_TEXTFSM Network Filter] ******************************************************************************************************************************************************
 
