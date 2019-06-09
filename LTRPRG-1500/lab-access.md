@@ -73,10 +73,10 @@ cisco@172.16.101.93's password:
 Welcome to Ubuntu 14.04.5 LTS (GNU/Linux 3.13.0-119-generic x86_64)
 :
 cisco@ansible-controller:~$
-cisco@ansible-controller:~$ ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 5e:00:00:00:00:00
-          inet addr:172.16.101.93  Bcast:172.16.101.255  Mask:255.255.255.0			<<<
-          inet6 addr: fe80::5c00:ff:fe00:0/64 Scope:Link
+cisco@ansible-controller:~$ ifconfig ens3
+ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 172.16.101.197  netmask 255.255.255.0  broadcast 172.16.101.255
+        inet6 fe80::5c00:40ff:fe00:0  prefixlen 64  scopeid 0x20<link>
 :
 cisco@ansible-controller:~$ ping 172.16.101.91
 PING 172.16.101.91 (172.16.101.91) 56(84) bytes of data.
@@ -85,6 +85,7 @@ PING 172.16.101.91 (172.16.101.91) 56(84) bytes of data.
 --- 172.16.101.91 ping statistics ---
 2 packets transmitted, 2 received, 0% packet loss, time 1001ms
 rtt min/avg/max/mdev = 0.893/0.903/0.914/0.031 ms
+
 cisco@ansible-controller:~$ ping 172.16.101.92
 PING 172.16.101.92 (172.16.101.92) 56(84) bytes of data.
 64 bytes from 172.16.101.92: icmp_seq=1 ttl=255 time=1.17 ms
