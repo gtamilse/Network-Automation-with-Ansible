@@ -91,7 +91,7 @@ sudo vi /etc/ansible/ansible.cfg
 
 - The target config lines are already there in the file but are commented. Simply delete # at the beginning of the line.
   
-  - Note: *library = /usr/share/my_modules/* will need to be changed to */home/cisco/*
+  - Note: *library = /usr/share/my_modules/* will need to be changed to */home/cisco/.ntc/*
   - Note: *gathering = implicit* will need to be changed to *explicit*
   - Note: *deprecation_warnings = True* will need to be changed to *False*
 
@@ -1052,7 +1052,7 @@ cisco@ansible-controller:~$ vi p7-loops.yml
         commands:
           - "{{item}}"
 
-      loop:
+      with_items:
            - show run int gig1
            - show run int gig2
            - show clock
@@ -1636,7 +1636,7 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
         commands:
           - "{{item}}"
 
-      loop:
+      with_items:
           - show platform
           - show redundancy
           - show proc cpu | ex "0%      0%       0%"
@@ -1684,7 +1684,7 @@ cisco@ansible-controller:~$ vi p32-xr-health-monitoring.yml
     - name: Route Summary Check
       debug:
         msg: " {{ item }}"
-      loop:
+      with_items:
         - " {{ inventory_hostname }} Route Summary: "
         - "{{ iosxr_mon.results[5].stdout_lines[0] }}"
 
@@ -1936,7 +1936,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
 ---
 - name: configure ospf on IOS routers - play-1
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: pre-check for ospf config
@@ -1961,7 +1961,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
 
 - name: configure ospf on XR routers - play-2
   hosts: XR
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: pre-check for ospf config
@@ -2096,7 +2096,7 @@ cisco@ansible-controller:~$ vi p33-ospf-capture.yml
 ---
 - name: OSPF captures from IOS routers
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: Collect IOS OSPF commands
@@ -2125,7 +2125,7 @@ cisco@ansible-controller:~$ vi p33-ospf-capture.yml
 
 - name: OSPF captures from XR routers
   hosts: XR
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: Collect XR OSPF commands
@@ -2186,7 +2186,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
 ---
 - name: configure ospf on IOS routers - play-1
   hosts: IOS
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: pre-check for ospf config
@@ -2211,7 +2211,7 @@ cisco@ansible-controller:~$ vi p33-ospf-config.yml
 
 - name: configure ospf on XR routers - play-2
   hosts: XR
-  connection: local
+  connection: network_cli
 
   tasks:
     - name: pre-check for ospf config
@@ -2445,7 +2445,7 @@ cisco@ansible-controller:~$ vi p34-ntc-xr-interfaces.yml
 ---
 - name: GET STRUCTURED DATA FOR SHOW INTERFACE BRIEF OUTPUT
   hosts: XR
-  connection: local
+  connection: network_cli
   gather_facts: False
   
   tasks:
@@ -2530,7 +2530,7 @@ cisco@ansible-controller:~$  vi p34-ntc-xr-version-check.yml
 ---
 - name: GET STRUCTURED DATA BACK FROM CLI DEVICES
   hosts: XR
-  connection: local
+  connection: network_cli
   gather_facts: False
   
   tasks:
@@ -2870,7 +2870,7 @@ cisco@ansible-controller:~$ vi roles-bgp.yml
 - name: Task to upload config to R1-IOS
   hosts: IOS
   gather_facts: false
-  connection: local
+  connection: network_cli
   tasks:
   - name: "Load iBGP configs for R1 router using SRC option using IOS_CONFIG Module"
     ios_config:
@@ -2878,7 +2878,7 @@ cisco@ansible-controller:~$ vi roles-bgp.yml
 
 - name: Task to upload config to R2-XRV
   gather_facts: false
-  connection: local
+  connection: network_cli
   hosts: XR
 
   tasks:
@@ -2896,7 +2896,7 @@ cisco@ansible-controller:~$ vi ios-bgp/tasks/main.yml
 ---
 - name: Generate R1 IOS router iBGP config file
   template: src=IOS-BGP.j2 dest=./{{item.hostname}}-BGP.txt
-  loop: "{{router_list}}"
+  with_items: "{{router_list}}"
 ```
 
 #### Step-5: Create a main.yml file inside the ios-bgp/vars folder.
@@ -2936,7 +2936,7 @@ cisco@ansible-controller:~$ vi xr-bgp/tasks/main.yml
 ---
 - name: Generate R2 XRV router iBGP config file
   template: src=XR-BGP.j2 dest=./{{item.hostname}}-BGP.txt
-  loop: "{{router_list}}"
+  with_items: "{{router_list}}"
 ```
 
 #### Step-8: Create a main.yml file inside the xr-bgp/vars folder.
@@ -3182,14 +3182,14 @@ $ vi config-gen/tasks/main.yml
   template:
      src=xr-config-template.j2
      dest=./{{item.hostname}}.txt
-  loop:
+  with_items:
      - "{{ xr_hostnames }}"
 
 - name: Generate the configuration for ios-routers
   template:
      src=ios-config-template.j2
      dest=./{{item.hostname}}.txt
-  loop:
+  with_items:
      - "{{ ios_hostnames }}"
 # tasks file for config-gen
 ```
