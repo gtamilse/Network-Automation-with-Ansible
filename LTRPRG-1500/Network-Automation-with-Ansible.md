@@ -302,7 +302,7 @@ cisco@ansible-controller:~$
 ---
 
 ## 1.4 Ad-hoc commands
-- Let's use a the following modules in this section: `raw`, `ios_command`, and `iosxr_command`
+- Let's use the following modules in this section: `raw`, `ios_command`, and `iosxr_command`
 - Syntax: `ansible <devices> -m <module> -a <command>`
 	- Note the devices must exist in the inventory file
 - Execute the below ad-hoc commands (from your home directory, /home/cisco)
@@ -322,7 +322,7 @@ $ ansible XR --connection network_cli -m iosxr_command -a "commands='show route 
 > - Do this section if you are ahead of schedule, else skip and come back later.
 > - It is possible to use ad-hoc commands with more arguments, as below:
 > ```
-> $ ansible IOS -c network_cli -m ios_command -a "authorize=true commands='show run int gig1'"
+> $ ansible IOS -c network_cli -m ios_command -a "commands='show run int gig1'"
 > $ ansible XR -c network_cli -m iosxr_facts -a "gather_subset=hardware"
 > ```
 
@@ -901,15 +901,15 @@ cisco@ansible-controller:~$ vi p6-vars.yml
 
       register: INT_OUT
 
-    - name: print stuff, style-1
+    - name: print stuff, stdout and stdout_lines
       debug:
         var: INT_OUT
 
-    - name: print stuff, style-2
+    - name: print stuff, stdout_lines
       debug:
         var: INT_OUT.stdout_lines[0]
 
-    - name: print stuff, style-2
+    - name: print stuff, stdout_lines
       debug:
         var: INT_OUT.stdout_lines[1]
 ```
@@ -1519,7 +1519,7 @@ Choose 1-4 [1]: 2
 ```
 #Run Ansible Playbook rtr-cfg-bkup everyday at 5:15 am UTC to backup router configs
 
-15 5 * * * /usr/bin/ansible-playbook -i /etc/ansible/hosts  /home/cisco/p31-runcfg-bkup.yml
+15 5 * * * /usr/local/bin/ansible-playbook -i /etc/ansible/hosts  /home/cisco/p31-runcfg-bkup.yml
 
 ```
 - Check to see if the cron job successfully created the new backup files.
