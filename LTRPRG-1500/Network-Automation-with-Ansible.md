@@ -723,6 +723,7 @@ cisco@ansible-controller:~$ vi p4-iosconfig.yml
 - Verify loopback101 interface does not already exist
 - Execute the playbook
 - Check if loopback101 interface is created by p4-iosconfig.yml playbook
+- The first check should fail as there is no loop101 configured yet.
 
 ```
 $ ansible IOS -c network_cli -m ios_command -a "commands='show run int loop101'"
