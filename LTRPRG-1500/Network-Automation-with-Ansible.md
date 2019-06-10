@@ -2439,7 +2439,7 @@ cisco@ansible-controller:~$ ls -l R[1-2]-OSPF*.txt
 
 #### Step-1: Create a playbook to print structured output from the show interface brief commnad
 
-- Make sure to change the host IP address to match your R2 IOS-XRv IP address.
+- Make sure to update the host ip address inside the playbook to be match your R2 XRv router IP address.
 
 ```
 cisco@ansible-controller:~$ vi p34-ntc-xr-interfaces.yml 
@@ -2524,6 +2524,7 @@ cisco@ansible-controller:~$ ansible-playbook p34-ntc-xr-interfaces.yml
 #### Step-4: Create a new playbook to print structured output from the "show version brief" command
 
 - This time you will create a custom template to match against a CLI output that is not included in the default ntc-ansible templates list.
+- Make sure to update the host ip address inside the playbook to be match your R2 XRv router IP address.
 
 ```
 cisco@ansible-controller:~$  vi p34-ntc-xr-version-check.yml
@@ -2611,7 +2612,7 @@ IOS XRv Chassis
 #### Step-6: Edit the templates/index file with an entry mapping the template to the host, platform and cli command.
 
 - Sudo password = cisco
-- Scroll down to cisco_xr section and insert the index above the cisco_xr_show_version line.
+- Scroll down to cisco_xr section and insert the index as the first line in cisco_xr list.
 
 ```
 cisco@ansible-controller:~$ sudo vi /home/cisco/.ntc/ntc-templates/templates/index
@@ -2621,10 +2622,13 @@ cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
 ```
 
 ```
-cisco@ansible-controller:~$ more //home/cisco/.ntc/ntc-templates/templates/index | grep ^cisco_xr_show_ver
+cisco@ansible-controller:~/LTRPRG-1500$ more //home/cisco/.ntc/ntc-templates/templates/index | grep ^cisco_xr_show
 
-cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] br[[ief]]
-cisco_xr_show_version.template, .*, cisco_xr, sh[[ow]] ver[[sion]]
+cisco_xr_show_version_brief.template, .*, cisco_xr, sh[[ow]] ver[[sion]] brief
+cisco_xr_show_controllers_HundredGigabitEthernet.template, .*, cisco_xr, sh[[ow]] contr[[ollers]] Hu[[ndredGigabitEthernet]]
+cisco_xr_show_bgp_vrf_all_ipv4_unicast_summary.template, .*, cisco_xr, sh[[ow]] bg[[p]] v[[rf]] all ip[[v4]] uni[[cast]] summ[[ary]]
+<snipped>
+
 ```
 
 #### Step-7: Execute the playbook p34-ntc-xr-version-check.yml
