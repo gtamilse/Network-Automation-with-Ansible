@@ -1445,7 +1445,7 @@ R2                         : ok=2    changed=0    unreachable=0    failed=0    s
 #### Step-1: Create an ansible playbook with a single play which will collect "show run" output from all the nodes.
 
 ```
-cisco@Ansible-Controller:~/project1$ vi p31-runcfg-bkup.yml
+cisco@ansible-controller:~$ vi p31-runcfg-bkup.yml
 ---
 - name: Get Router Config from All Routers
   hosts: all
